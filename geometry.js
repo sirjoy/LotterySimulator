@@ -25,6 +25,8 @@ export const PHYSICS = {
   REST_WALL_SETTLE: 0.30, // calmer wall bounce when settling
   SETTLE_ITERS:     4,    // extra position-relaxation passes when air is off, so
                           // a dense pile converges to rest instead of jittering
+  SETTLE_REST_SPEED: 25,  // px/s — below this the pile is at rest, so skip the
+                          // relaxation passes (don't burn frames while idle)
 
   // Jet — Gaussian lift profile from the nozzle
   NOZZLE_SIGMA:   35,     // wider Gaussian — more balls directly hit by jet
@@ -189,7 +191,9 @@ export const VASE_DIMS = {
 // chosen so that, at the slightly larger CSS width, it renders at the SAME
 // display height as the numbered vases while being ~20% wider. Body width 262 vs
 // the vase's 206. Small balls (r=6); containment + calmSettle keep them in and
-// at rest.
+// at rest. Note tubeH (60) > bodyTopY (40) is intentional — the tube extends
+// above the canvas and that part is hidden behind the captured-stage badge
+// overlay (same convention as VASE_DIMS).
 export const SERIE_DIMS = {
   w: 394, h: 500,
   bodyTopY: 40, bodyBotY: 240, funnelBotY: 475,

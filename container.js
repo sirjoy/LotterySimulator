@@ -298,13 +298,24 @@ export class Container {
     // pile converges to a non-overlapping rest state instead of jittering.
     // rest=0 → pure separation: no bounce energy, and velocities are left alone,
     // so balls still fall naturally while settling (no floaty slow-fall).
+    // Skip the passes once the pile is already quiet (e.g. idling between draws)
+    // so we don't relax a pile that's at rest every frame — the main collision
+    // pass above (with calm restitution) is enough to hold it.
     if (calm) {
-      for (let k = 0; k < P.SETTLE_ITERS; k++) {
-        resolveBallCollisions(this.balls, 0, this.broadphase);
-        for (const b of this.balls) {
-          if (b.captured) continue;
-          resolveSegments(geo, P, b, 0);
-          if (this.containment) clampToContainer(geo, b);
+      let maxV2 = 0;
+      for (const b of this.balls) {
+        if (b.captured) continue;
+        const v2 = b.vx*b.vx + b.vy*b.vy;
+        if (v2 > maxV2) maxV2 = v2;
+      }
+      if (maxV2 > P.SETTLE_REST_SPEED*P.SETTLE_REST_SPEED) {
+        for (let k = 0; k < P.SETTLE_ITERS; k++) {
+          resolveBallCollisions(this.balls, 0, this.broadphase);
+          for (const b of this.balls) {
+            if (b.captured) continue;
+            resolveSegments(geo, P, b, 0);
+            if (this.containment) clampToContainer(geo, b);
+          }
         }
       }
     }

@@ -37,7 +37,10 @@ const SERIE_CONFIG = {
   palette: makeHuePalette(350),
   renderDetail: 'color',    // BallSpriteRenderer — no on-ball text
   broadphase: 'grid',       // all-pairs (~61k pairs/frame) is too costly at 350
-  initMode: 'presettle',    // runs through the grid broadphase too; respects funnel
+  initMode: 'presettle',    // deliberate: runs through the grid + respects the
+                            // funnel. packed-grid would skip the one-time
+                            // synchronous settle but ignores the funnel taper and
+                            // doesn't shuffle labels (unfair) — left to the base.
   containment: true,        // hard clamp — dense small balls can't tunnel out
   calmSettle: true,         // dense pile rests instead of jittering when air off
   shuffleLabels: true,      // uniform draw across 0–349 despite positional bias
