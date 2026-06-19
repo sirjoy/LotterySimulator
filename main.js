@@ -9,19 +9,22 @@ import { Container } from './container.js';
 import { buildControls, buildContainerUI } from './ui.js';
 import { BALL_COLORS, VASE_DIMS, SERIE_DIMS, makeHuePalette } from './geometry.js';
 
-// The original single vase, expressed as a Container config.
-const VASE_CONFIG = {
-  id: 'vase',
-  dims: VASE_DIMS,
-  ballCount: 10,
-  labels: (i) => String(i),
-  palette: BALL_COLORS,
-  renderDetail: 'text',     // per-ball gradient + numeric label
-  broadphase: 'all-pairs',  // O(n²) — fine for 10 balls
-  initMode: 'presettle',    // scatter + 120-step settle
-  airSetting: 0.75,
-  maxSubsteps: 1,           // → one physics step per frame (vase parity)
-};
+// A standard 10-ball numbered vase (the original), as a config factory so we
+// can line up several identical ones in the stage row.
+function numberedVase(id) {
+  return {
+    id,
+    dims: VASE_DIMS,
+    ballCount: 10,
+    labels: (i) => String(i),
+    palette: BALL_COLORS,
+    renderDetail: 'text',     // per-ball gradient + numeric label
+    broadphase: 'all-pairs',  // O(n²) — fine for 10 balls
+    initMode: 'presettle',    // scatter + 120-step settle
+    airSetting: 0.75,
+    maxSubsteps: 1,           // → one physics step per frame (vase parity)
+  };
+}
 
 // Expansion step 1: a "serie" vase with 50 colour-only (unlabelled) balls.
 // The captured number (0–49) is still revealed in the results panel.
@@ -51,7 +54,9 @@ function addContainer(config) {
   return c;
 }
 
-addContainer(VASE_CONFIG);
+// Four identical 10-ball numbered vases, then the 50-ball colour serie — all
+// horizontally aligned in the stage row.
+['vase 1', 'vase 2', 'vase 3', 'vase 4'].forEach(id => addContainer(numberedVase(id)));
 addContainer(SERIE_CONFIG);
 
 // Global control bar (needs the container list to fan out actions).

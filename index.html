@@ -62,42 +62,47 @@
   .air-label   { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
   .air-control .air-slider { width: 120px; }
 
-  /* ── Workspace: canvases row + shared results panel ── */
+  /* ── Workspace: a single horizontal row of canvases, with the shared
+     results panel stacked below so the vases get the full width. ── */
   #workspace {
     display: flex;
-    gap: 28px;
-    align-items: flex-start;
-    justify-content: center;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 22px;
+    align-items: center;
     width: 100%;
     padding-top: 72px;   /* headroom for the captured-stage badge above canvases */
   }
 
   #stage {
     display: flex;
-    gap: 28px;
-    align-items: flex-start;
-    flex-wrap: wrap;
+    gap: 14px;
+    align-items: flex-end;   /* align vase bottoms when scaled */
+    flex-wrap: nowrap;       /* keep all vases on one horizontal line */
     justify-content: center;
+    width: 100%;
   }
-  .canvas-wrap { position: relative; flex-shrink: 0; }
-  /* Scale canvases down to fit the viewport height (never upscale past native
-     310×520); width follows to preserve aspect ratio. Keeps every vase fully
-     visible without scrolling. */
-  canvas { display: block; height: auto; width: auto; max-height: 62vh; }
+  .canvas-wrap { position: relative; flex-shrink: 1; min-width: 0; }
+  /* Scale every canvas to fit BOTH a share of the viewport width (so all five
+     sit in one row) and the viewport height — never upscaling past native
+     310×520. Aspect ratio is preserved, so each vase stays fully visible. */
+  canvas { display: block; height: auto; width: auto; max-height: 54vh; max-width: 18vw; }
 
   #results {
-    width: 240px;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-items: stretch;
+  }
+  .res-row {
+    width: 200px;
     background: var(--panel);
     border: 1px solid var(--chrome);
     border-radius: 12px;
-    padding: 4px 12px;
-    display: flex;
-    flex-direction: column;
-    align-self: flex-start;
+    padding: 11px 13px;
   }
-  .res-row { padding: 11px 2px; border-bottom: 1px solid var(--chrome); }
-  .res-row:last-child { border-bottom: none; }
   .res-head { display: flex; align-items: center; gap: 8px; }
   .res-name {
     font-family: 'Bebas Neue', sans-serif;
