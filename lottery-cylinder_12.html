@@ -326,6 +326,13 @@ const CAPTURE_BOOST    = 950;   // px/s — strong enough to clear tube fast
 const CHANNEL_STR      = 18;
 const SETTLE_TIME      = 2.8;
 
+// Gate trigger delay — pressing OPEN GATE does not open the gate immediately.
+// The machine waits a randomised interval (balls keep tumbling) before the
+// gate slides open, so the moment of release — and thus which ball happens to
+// be near the exit — is less predictable.
+const GATE_DELAY     = 3.0;  // s — base delay between button press and gate opening
+const GATE_DELAY_JIT = 1.0;  // s — ± random jitter; actual delay ∈ [2,4]s
+
 // Gate animation
 const GATE_OPEN_SPEED  = 5.5;   // snaps open in ~0.18s
 
@@ -454,9 +461,10 @@ const BALL_COLORS = [
 // ═══════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════
-// 'idle' | 'ramping' | 'tumbling' | 'gate_open' | 'capturing' | 'settling'
+// 'idle' | 'ramping' | 'tumbling' | 'gate_wait' | 'gate_open' | 'capturing' | 'settling'
 let simState    = 'idle';
 let stateTimer  = 0;
+let gateDelay   = 0;   // randomised wait (s) between OPEN GATE press and gate opening
 let airPower    = 0;
 let airBase     = 0;
 let airSetting  = 0.75;
@@ -654,7 +662,7 @@ function resolveGate(b) {
 //  BALL UPDATE
 // ═══════════════════════════════════════════════
 function updateBalls(dt) {
-  const airOn = (simState==='ramping'||simState==='tumbling'||
+  const airOn = (simState==='ramping'||simState==='tumbling'||simState==='gate_wait'||
                  simState==='gate_open'||simState==='capturing');
   const drag  = airOn ? DRAG_ON : DRAG_OFF;
 
@@ -1009,6 +1017,21 @@ function loop(ts) {
       airPower = Math.max(0, airBase+pulse*airBase);
       break;
 
+    case 'gate_wait':
+      // OPEN GATE was pressed, but hold the gate shut for a randomised
+      // interval while the balls keep tumbling, then release. This makes the
+      // exact moment of opening unpredictable rather than instant.
+      airBase = airSetting;
+      airPower = Math.max(0, airBase+pulse*airBase);
+      stateTimer += dt;
+      setStatus(`Gate triggered — opening in ${Math.max(0, gateDelay-stateTimer).toFixed(1)}s`);
+      if (stateTimer >= gateDelay) {
+        simState = 'gate_open';
+        gateOpening = true;
+        setStatus('Gate opening…');
+      }
+      break;
+
     case 'gate_open':
       airBase = airSetting;
       airPower = Math.max(0, airBase+pulse*airBase);
@@ -1115,10 +1138,14 @@ function startBlow() {
 
 function openGate() {
   if (simState !== 'tumbling') return;
-  simState = 'gate_open';
-  gateOpening = true;
+  // Don't open immediately — wait a randomised 3 ± 1 s while the balls keep
+  // tumbling, so the moment of release is unpredictable.
+  simState = 'gate_wait';
+  stateTimer = 0;
+  gateDelay = GATE_DELAY + (Math.random()*2 - 1) * GATE_DELAY_JIT;
+  gateOpening = false;
   setBtnGate(false, false);
-  setDot('gate'); setStatus('Gate opening…');
+  setDot('gate'); setStatus('Gate triggered…');
 }
 
 // ═══════════════════════════════════════════════
