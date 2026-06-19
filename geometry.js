@@ -176,3 +176,37 @@ export const VASE_DIMS = {
   tubeW: 32, tubeH: 62,
   ballR: 13,
 };
+
+// The "serie" vase: same shape/canvas as the vase but smaller balls so 50 fit
+// and tumble with headroom.
+export const SERIE_DIMS = {
+  ...VASE_DIMS,
+  ballR: 9,
+};
+
+// HSL→#rrggbb (h in degrees [0,360), s & l in [0,1]). Hex output is required
+// because shadeColor()/the ball renderers parse #rrggbb.
+function hslToHex(h, s, l) {
+  const c = (1 - Math.abs(2*l - 1)) * s;
+  const x = c * (1 - Math.abs(((h/60) % 2) - 1));
+  const m = l - c/2;
+  let r=0, g=0, b=0;
+  if (h < 60)       { r=c; g=x; b=0; }
+  else if (h < 120) { r=x; g=c; b=0; }
+  else if (h < 180) { r=0; g=c; b=x; }
+  else if (h < 240) { r=0; g=x; b=c; }
+  else if (h < 300) { r=x; g=0; b=c; }
+  else              { r=c; g=0; b=x; }
+  const to = (v) => Math.round((v+m)*255).toString(16).padStart(2,'0');
+  return '#' + to(r) + to(g) + to(b);
+}
+
+// Generate `n` distinct hex colours spread around the hue wheel. Used for
+// unlabelled balls (the serie vase) so motion is readable.
+export function makeHuePalette(n) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    out.push(hslToHex((i * 360 / n) % 360, 0.70, 0.60));
+  }
+  return out;
+}

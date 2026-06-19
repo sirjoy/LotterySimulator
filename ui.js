@@ -1,122 +1,129 @@
 // ═══════════════════════════════════════════════
 //  ui.js
-//  Builds one DOM control panel per Container and wires it up.
-//  All element lookups are scoped to the panel subtree (class
-//  selectors via panel.querySelector), so any number of panels
-//  can coexist without id collisions.
+//  Two pieces of UI:
+//   1. buildControls(containers) — one global control bar
+//      (BLOW / OPEN GATE / reset / air) that drives ALL containers.
+//   2. buildContainerUI(container) — per-container bare canvas (for the
+//      stage row) + a compact row in the shared results panel. Returns the
+//      DOM nodes and attaches the per-container UI setters via mountUI().
 //
-//  Depends on: container.js (only at call time — pass an instance).
+//  All element lookups are scoped to their own subtree (class selectors),
+//  so any number of containers can coexist without id collisions.
 // ═══════════════════════════════════════════════
 
-const PANEL_HTML = `
-  <div class="canvas-wrap">
-    <div class="captured-stage"></div>
-  </div>
-  <div class="panel">
-    <div class="card">
-      <div class="card-label">Result</div>
-      <div class="result-number empty">–</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Draw History</div>
-      <div class="history-list"></div>
-    </div>
-    <div class="card">
-      <div class="card-label">Air Intensity</div>
-      <div class="slider-wrap">
-        <div class="slider-row">
-          <span style="font-size:12px;color:var(--dim)">Blower power</span>
-          <span class="slider-val air-val">75%</span>
-        </div>
-        <input type="range" class="air-slider" min="30" max="130" value="75">
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-label">Status</div>
-      <div class="status-bar">
-        <div class="dot"></div>
-        <span class="status-text">Ready</span>
-      </div>
-    </div>
-    <button class="btn-primary btn-blow">▶ BLOW AIR</button>
-    <button class="btn-primary btn-gate" disabled>⊙ OPEN GATE</button>
-    <button class="btn-reset">Reset history</button>
+const CONTROLS_HTML = `
+  <button class="btn-primary btn-blow">▶ BLOW AIR</button>
+  <button class="btn-primary btn-gate" disabled>⊙ OPEN GATE</button>
+  <button class="btn-reset">Reset history</button>
+  <div class="air-control">
+    <span class="air-label">Air</span>
+    <input type="range" class="air-slider" min="30" max="130" value="75">
+    <span class="slider-val air-val">75%</span>
   </div>
 `;
 
-// Build the panel for `container`, wire events, attach the UI setters via
-// container.mountUI(), and return the root element to append to the stage.
-export function buildPanel(container) {
-  const root = document.createElement('div');
-  root.className = 'sim-unit';
-  root.innerHTML = PANEL_HTML;
+// Global control bar. Blow/gate/reset fan out to every container; the air
+// slider sets every container's blower power. Returns the element plus button
+// setters (the manager loop drives enable/pulse from aggregate state).
+export function buildControls(containers) {
+  const el = document.createElement('div');
+  el.id = 'controls';
+  el.innerHTML = CONTROLS_HTML;
 
-  // Insert the container's own canvas into its wrap.
-  const wrap = root.querySelector('.canvas-wrap');
-  const capturedStage = root.querySelector('.captured-stage');
-  wrap.appendChild(container.canvas);
+  const btnBlow   = el.querySelector('.btn-blow');
+  const btnGate   = el.querySelector('.btn-gate');
+  const btnReset  = el.querySelector('.btn-reset');
+  const airSlider = el.querySelector('.air-slider');
+  const airVal    = el.querySelector('.air-val');
 
-  // Scoped element refs.
-  const resultNumber = root.querySelector('.result-number');
-  const historyList  = root.querySelector('.history-list');
-  const statusText   = root.querySelector('.status-text');
-  const dot          = root.querySelector('.dot');
-  const btnBlow      = root.querySelector('.btn-blow');
-  const btnGate      = root.querySelector('.btn-gate');
-  const btnReset     = root.querySelector('.btn-reset');
-  const airSlider    = root.querySelector('.air-slider');
-  const airVal       = root.querySelector('.air-val');
+  btnBlow.addEventListener('click',  () => containers.forEach(c => c.startBlow()));
+  btnGate.addEventListener('click',  () => containers.forEach(c => c.openGate()));
+  btnReset.addEventListener('click', () => containers.forEach(c => c.resetHistory()));
+  airSlider.addEventListener('input', function () {
+    const v = this.value / 100;
+    containers.forEach(c => { c.airSetting = v; });
+    airVal.textContent = this.value + '%';
+  });
 
-  // Reflect the container's initial air setting.
-  const initPct = Math.round(container.airSetting * 100);
-  airSlider.value = String(initPct);
-  airVal.textContent = initPct + '%';
+  // Sync initial air setting onto every container.
+  const initV = airSlider.value / 100;
+  containers.forEach(c => { c.airSetting = initV; });
 
-  // Bound UI setters (was the global UI-helper functions).
-  const ui = {
-    setStatus(t) { statusText.textContent = t; },
-    setDot(cls)  { dot.className = 'dot ' + cls; },
+  return {
+    el,
     setBtnBlow(enabled) { btnBlow.disabled = !enabled; },
     setBtnGate(enabled, pulse) {
       btnGate.disabled = !enabled;
       btnGate.className = 'btn-primary btn-gate' + (pulse ? ' ready' : '');
     },
+  };
+}
+
+const RESULT_ROW_HTML = `
+  <div class="res-head">
+    <span class="dot"></span>
+    <span class="res-name"></span>
+    <span class="res-number empty">–</span>
+  </div>
+  <div class="res-status">Ready</div>
+  <div class="history-list"></div>
+`;
+
+// Per-container UI: a bare canvas-wrap for the stage row, and a compact row in
+// the shared results panel (name + status dot + status text + drawn number +
+// horizontal history). Wires the setters and returns both nodes.
+export function buildContainerUI(container) {
+  // ── Stage: bare canvas + captured-stage badge ──
+  const canvasWrap = document.createElement('div');
+  canvasWrap.className = 'canvas-wrap';
+  const capturedStage = document.createElement('div');
+  capturedStage.className = 'captured-stage';
+  canvasWrap.appendChild(capturedStage);
+  canvasWrap.appendChild(container.canvas);
+
+  // ── Shared results panel: one row per container ──
+  const row = document.createElement('div');
+  row.className = 'res-row';
+  row.innerHTML = RESULT_ROW_HTML;
+  row.querySelector('.res-name').textContent = container.id.toUpperCase();
+
+  const dot         = row.querySelector('.dot');
+  const resNumber   = row.querySelector('.res-number');
+  const resStatus   = row.querySelector('.res-status');
+  const historyList = row.querySelector('.history-list');
+
+  const ui = {
+    // Button setters are global (handled by buildControls) → no-ops here, so
+    // the container's state-machine calls remain valid.
+    setBtnBlow() {}, setBtnGate() {},
+
+    setStatus(t) { resStatus.textContent = t; },
+    setDot(cls)  { dot.className = 'dot ' + cls; },
+
     updateResult(ball) {
-      resultNumber.textContent = ball.label;
-      resultNumber.className = 'result-number';
-      resultNumber.style.color = ball.color;
-      resultNumber.style.textShadow = `0 0 26px ${ball.color}99`;
+      resNumber.textContent = ball.label;
+      resNumber.className = 'res-number';
+      resNumber.style.color = ball.color;
+      resNumber.style.textShadow = `0 0 18px ${ball.color}99`;
     },
     clearResult() {
-      resultNumber.textContent = '–';
-      resultNumber.className = 'result-number empty';
-      resultNumber.style.color = '';
-      resultNumber.style.textShadow = '';
+      resNumber.textContent = '–';
+      resNumber.className = 'res-number empty';
+      resNumber.style.color = '';
+      resNumber.style.textShadow = '';
     },
+
     addHistoryRow(label, index, color) {
-      const row = document.createElement('div');
-      row.className = 'hist-row';
-
-      const num = document.createElement('div');
-      num.className = 'hist-idx';
-      num.textContent = '#' + index;
-
       const chip = document.createElement('div');
       chip.className = 'hist-chip';
       chip.textContent = label;
       chip.style.borderColor = color;
-
-      const bar = document.createElement('div');
-      bar.className = 'hist-bar';
-      bar.style.background = color;
-
-      row.appendChild(num);
-      row.appendChild(chip);
-      row.appendChild(bar);
-      historyList.appendChild(row);
-      historyList.scrollTop = historyList.scrollHeight;
+      chip.title = '#' + index;
+      historyList.appendChild(chip);
+      historyList.scrollLeft = historyList.scrollWidth;
     },
     clearHistory() { historyList.innerHTML = ''; },
+
     showCapturedStage(ball) {
       const uid = ball.id + '_' + Date.now();
       capturedStage.innerHTML = `<svg width="52" height="52" viewBox="0 0 52 52">
@@ -133,15 +140,6 @@ export function buildPanel(container) {
     clearCaptured() { capturedStage.innerHTML = ''; },
   };
 
-  // Event wiring → container methods.
-  btnBlow.addEventListener('click', () => container.startBlow());
-  btnGate.addEventListener('click', () => container.openGate());
-  btnReset.addEventListener('click', () => container.resetHistory());
-  airSlider.addEventListener('input', function () {
-    container.airSetting = this.value / 100;
-    airVal.textContent = this.value + '%';
-  });
-
   container.mountUI(ui);
-  return root;
+  return { canvasWrap, resultRow: row };
 }
