@@ -24,11 +24,13 @@ by an explicit state machine. Understanding the code means understanding these t
 interlocking systems:
 
 ### 1. State machine (`simState`)
-`idle → ramping → tumbling → gate_open → capturing → settling → idle`. The `switch`
-in `loop()` sets air pressure per state; transitions are triggered by timers
-(`stateTimer`, `RAMP_TIME`, `SETTLE_TIME`), the gate animation completing, or a ball
-entering the tube. UI buttons gate these transitions: `startBlow()` (idle→ramping)
-and `openGate()` (tumbling→gate_open). Button enable/disable state is kept in sync
+`idle → ramping → tumbling → gate_wait → gate_open → capturing → settling → idle`.
+The `switch` in `loop()` sets air pressure per state; transitions are triggered by
+timers (`stateTimer`, `RAMP_TIME`, `GATE_DELAY`, `SETTLE_TIME`), the gate animation
+completing, or a ball entering the tube. `gate_wait` is a randomised hold (3 ± 1 s)
+after the OPEN GATE press during which balls keep tumbling, so the moment the gate
+opens is unpredictable. UI buttons gate these transitions: `startBlow()`
+(idle→ramping) and `openGate()` (tumbling→gate_wait). Button enable/disable state is kept in sync
 manually via `setBtnBlow`/`setBtnGate` — there is no framework, so any new state must
 update both the machine and the DOM.
 
