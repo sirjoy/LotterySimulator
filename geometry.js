@@ -177,11 +177,13 @@ export const VASE_DIMS = {
   ballR: 13,
 };
 
-// The "serie" vase: same shape/canvas as the vase but smaller balls so 50 fit
-// and tumble with headroom.
+// The "serie" vase: same shape/canvas as the vase but smaller balls so many
+// fit and tumble with headroom. Exploration toward the large base: r=6 packs
+// ~100 balls while staying large enough not to tunnel through the funnel walls
+// (the discrete wall test lets very small balls slip through in one step).
 export const SERIE_DIMS = {
   ...VASE_DIMS,
-  ballR: 9,
+  ballR: 6,
 };
 
 // HSL→#rrggbb (h in degrees [0,360), s & l in [0,1]). Hex output is required

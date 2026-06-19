@@ -26,17 +26,19 @@ function numberedVase(id) {
   };
 }
 
-// Expansion step 1: a "serie" vase with 50 colour-only (unlabelled) balls.
-// The captured number (0–49) is still revealed in the results panel.
+// A "serie" vase with 100 colour-only (unlabelled) balls at half radius —
+// exploration toward the large base. The captured number (0–99) is still
+// revealed in the results panel.
 const SERIE_CONFIG = {
   id: 'serie',
   dims: SERIE_DIMS,
-  ballCount: 50,
+  ballCount: 100,
   labels: (i) => String(i),
-  palette: makeHuePalette(50),
+  palette: makeHuePalette(100),
   renderDetail: 'color',    // BallSpriteRenderer — no on-ball text
-  broadphase: 'all-pairs',  // ~1,225 pairs/frame — trivial at 50
+  broadphase: 'all-pairs',  // ~4,950 pairs/frame — still trivial at 100
   initMode: 'presettle',
+  containment: true,        // hard clamp — dense small balls can't tunnel out
   airSetting: 0.75,
   maxSubsteps: 1,
 };
