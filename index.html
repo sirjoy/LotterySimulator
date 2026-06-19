@@ -28,10 +28,11 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 18px;
     padding: 20px;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   h1 {
@@ -43,72 +44,95 @@
   }
   h1 span { color: var(--accent); }
 
-  /* #stage hosts one or more .sim-unit containers; CSS lays them out. */
+  /* ── Global control bar ── */
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: var(--panel);
+    border: 1px solid var(--chrome);
+    border-radius: 12px;
+    padding: 12px 16px;
+  }
+  #controls .btn-primary { width: auto; padding: 10px 22px; }
+  #controls .btn-reset   { width: auto; padding: 9px 14px; }
+  .air-control { display: flex; align-items: center; gap: 8px; }
+  .air-label   { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+  .air-control .air-slider { width: 120px; }
+
+  /* ── Workspace: canvases row + shared results panel ── */
+  #workspace {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+    width: 100%;
+    padding-top: 72px;   /* headroom for the captured-stage badge above canvases */
+  }
+
   #stage {
     display: flex;
-    gap: 40px;
+    gap: 28px;
     align-items: flex-start;
     flex-wrap: wrap;
     justify-content: center;
   }
-
-  .sim-unit {
-    display: flex;
-    gap: 24px;
-    align-items: flex-start;
-  }
-
   .canvas-wrap { position: relative; flex-shrink: 0; }
-  canvas { display: block; }
+  /* Scale canvases down to fit the viewport height (never upscale past native
+     310×520); width follows to preserve aspect ratio. Keeps every vase fully
+     visible without scrolling. */
+  canvas { display: block; height: auto; width: auto; max-height: 62vh; }
 
-  .panel {
-    width: 205px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .card {
+  #results {
+    width: 240px;
     background: var(--panel);
     border: 1px solid var(--chrome);
     border-radius: 12px;
-    padding: 14px;
-  }
-  .card-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    color: var(--dim);
-    text-transform: uppercase;
-    margin-bottom: 9px;
-  }
-
-  .result-number {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 64px;
-    line-height: 1;
-    color: var(--amber);
-    text-align: center;
-    text-shadow: 0 0 28px rgba(255,179,48,0.5);
-    min-height: 68px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color .3s, text-shadow .3s;
-  }
-  .result-number.empty { color: var(--chrome); text-shadow: none; }
-
-  .history-list {
+    padding: 4px 12px;
     display: flex;
     flex-direction: column;
+    align-self: flex-start;
+  }
+  .res-row { padding: 11px 2px; border-bottom: 1px solid var(--chrome); }
+  .res-row:last-child { border-bottom: none; }
+  .res-head { display: flex; align-items: center; gap: 8px; }
+  .res-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px; letter-spacing: .08em;
+    color: #fff; flex: 1;
+  }
+  .res-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 34px; line-height: 1;
+    color: var(--amber);
+    text-shadow: 0 0 18px rgba(255,179,48,0.5);
+    margin-left: auto;
+    transition: color .3s, text-shadow .3s;
+  }
+  .res-number.empty { color: var(--chrome); text-shadow: none; }
+  .res-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; letter-spacing: .04em;
+    color: var(--dim);
+    margin: 5px 0 7px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* ── History (horizontal, compact) ── */
+  .history-list {
+    display: flex;
+    flex-direction: row;
     gap: 4px;
-    max-height: 96px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 2px;
     scrollbar-width: thin;
     scrollbar-color: var(--chrome) transparent;
   }
-  .history-list::-webkit-scrollbar { width: 4px; }
+  .history-list::-webkit-scrollbar { height: 4px; }
   .history-list::-webkit-scrollbar-thumb { background: var(--chrome); border-radius: 2px; }
   .history-list:empty::after {
     content: 'No draws yet';
@@ -116,25 +140,11 @@
     font-size: 10px;
     color: var(--dim);
   }
-  .hist-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-  .hist-idx {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    color: var(--dim);
-    width: 22px;
-    text-align: right;
-    flex-shrink: 0;
-  }
   .hist-chip {
     font-family: 'DM Mono', monospace;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
-    width: 26px; height: 26px;
+    width: 24px; height: 24px;
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     background: var(--chrome);
@@ -143,26 +153,12 @@
     flex-shrink: 0;
     animation: popIn .35s cubic-bezier(.34,1.56,.64,1);
   }
-  .hist-bar {
-    flex: 1;
-    height: 2px;
-    border-radius: 1px;
-    opacity: 0.5;
-  }
   @keyframes popIn {
     from { transform: scale(0); opacity: 0; }
     to   { transform: scale(1); opacity: 1; }
   }
 
-  .status-bar {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--dim);
-    letter-spacing: .05em;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
+  /* ── Status dot ── */
   .dot {
     width: 8px; height: 8px;
     border-radius: 50%;
@@ -174,8 +170,7 @@
   .dot.capture { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
   .dot.gate    { background: var(--red);   box-shadow: 0 0 8px var(--red); }
 
-  .slider-wrap { display: flex; flex-direction: column; gap: 7px; }
-  .slider-row  { display: flex; justify-content: space-between; align-items: center; }
+  /* ── Sliders ── */
   .slider-val  { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); }
   input[type=range] {
     -webkit-appearance: none;
@@ -192,7 +187,7 @@
     cursor: pointer;
   }
 
-  /* Buttons */
+  /* ── Buttons ── */
   .btn-primary {
     width: 100%;
     padding: 12px;
@@ -230,7 +225,6 @@
   }
 
   .btn-reset {
-    width: 100%;
     padding: 8px;
     font-family: 'Inter', sans-serif;
     font-size: 12px;
@@ -243,6 +237,7 @@
   }
   .btn-reset:hover { color: var(--text); border-color: var(--dim); }
 
+  /* ── Captured-ball badge (pops above its canvas) ── */
   .captured-stage {
     position: absolute;
     top: -72px;
@@ -259,7 +254,12 @@
 
 <h1>PNEUMATIC <span>LOTTERY</span> DRAW</h1>
 
-<div id="stage"></div>
+<div id="controls-host"></div>
+
+<div id="workspace">
+  <div id="stage"></div>
+  <div id="results"></div>
+</div>
 
 <script type="module" src="./main.js"></script>
 </body>
