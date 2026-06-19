@@ -19,6 +19,15 @@ export const PHYSICS = {
   REST_FLOOR:     0.55,   // floor has more bounce
   FLOOR_FRICTION: 0.88,
 
+  // Settling calm — used (opt-in via container.calmSettle) once the air is off,
+  // so a dense pile comes to rest instead of jittering forever.
+  REST_BALL_SETTLE: 0.20, // near-dead ball-ball bounce when settling
+  REST_WALL_SETTLE: 0.30, // calmer wall bounce when settling
+  SETTLE_ITERS:     4,    // extra position-relaxation passes when air is off, so
+                          // a dense pile converges to rest instead of jittering
+  SETTLE_REST_SPEED: 25,  // px/s — below this the pile is at rest, so skip the
+                          // relaxation passes (don't burn frames while idle)
+
   // Jet — Gaussian lift profile from the nozzle
   NOZZLE_SIGMA:   35,     // wider Gaussian — more balls directly hit by jet
   JET_PEAK:       4400,   // px/s² — at 75% power = 3300, well above 2×gravity
@@ -177,12 +186,20 @@ export const VASE_DIMS = {
   ballR: 13,
 };
 
-// The "serie" vase: same shape/canvas as the vase but smaller balls so many
-// fit and tumble with headroom. Exploration toward the large base: r=6 packs
-// ~100 balls while staying large enough not to tunnel through the funnel walls
-// (the discrete wall test lets very small balls slip through in one step).
+// The "serie" vase: a wider chamber than the numbered vases (its own geometry,
+// not spread from VASE_DIMS) for the dense 350-ball draw. Its aspect (~0.79) is
+// chosen so that, at the slightly larger CSS width, it renders at the SAME
+// display height as the numbered vases while being ~20% wider. Body width 262 vs
+// the vase's 206. Small balls (r=6); containment + calmSettle keep them in and
+// at rest. Note tubeH (60) > bodyTopY (40) is intentional — the tube extends
+// above the canvas and that part is hidden behind the captured-stage badge
+// overlay (same convention as VASE_DIMS).
 export const SERIE_DIMS = {
-  ...VASE_DIMS,
+  w: 394, h: 500,
+  bodyTopY: 40, bodyBotY: 240, funnelBotY: 475,
+  bodyLeft: 66, bodyRight: 328,
+  nozzleHalf: 20, topInset: 16, topH: 55,
+  tubeW: 34, tubeH: 60,
   ballR: 6,
 };
 
