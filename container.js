@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════
 import { makeGeometry, PHYSICS } from './geometry.js';
 import {
-  jetForce, resolveSegments, resolveGate, resolveBallCollisions,
+  jetForce, resolveSegments, resolveGate, resolveBallCollisions, clampToContainer,
   AllPairsBroadphase, UniformGridBroadphase,
 } from './physics.js';
 import { drawScene, BallTextRenderer, BallSpriteRenderer } from './render.js';
@@ -54,6 +54,10 @@ export class Container {
     this.maxSubsteps = config.maxSubsteps || 1;
     this.acc         = 0;
 
+    // Hard containment clamp — opt-in; keeps dense/small balls from tunnelling
+    // through walls. Off for the big-ball vases (exact original behaviour).
+    this.containment = config.containment || false;
+
     // Per-instance state (was global).
     this.simState   = 'idle';
     this.stateTimer = 0;
@@ -87,6 +91,7 @@ export class Container {
       labels: this.config.labels,
       palette: this.config.palette,
       broadphase: this.broadphase,
+      containment: this.containment,
     });
     this.initAirParts();
   }
@@ -262,6 +267,7 @@ export class Container {
 
       resolveSegments(geo, P, b, P.REST_WALL);
       resolveGate(geo, P, this.gate, b);
+      if (this.containment) clampToContainer(geo, b);
 
       // Tube exit — first ball into the open tube wins.
       const inTubeX = b.x > geo.tubeL + b.r * 0.5 && b.x < geo.tubeR - b.r * 0.5;
@@ -349,7 +355,7 @@ export class Container {
 // Random scatter + 120-step synchronous presettle. Used by the vase —
 // identical to the original initBalls.
 export class PresettleInit {
-  place({ geo, P, count, labels, palette, broadphase }) {
+  place({ geo, P, count, labels, palette, broadphase, containment }) {
     const balls = [];
     for (let i = 0; i < count; i++) {
       const randY = geo.funnelBotY - geo.ballR - Math.random() * (geo.funnelBotY - geo.bodyBotY + 100);
@@ -375,6 +381,7 @@ export class PresettleInit {
         b.vx *= 0.84; b.vy *= 0.84;
         b.x += b.vx * dt; b.y += b.vy * dt;
         resolveSegments(geo, P, b, 0.25);
+        if (containment) clampToContainer(geo, b);
       }
       resolveBallCollisions(balls, 0.25, broadphase);
     }

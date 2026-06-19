@@ -47,6 +47,45 @@ export function resolveSegments(geo, P, b, restitution) {
   }
 }
 
+// ── Hard containment: keep a ball strictly inside the vase outline ──
+// A safety net for dense / small-ball cases where the discrete wall test can
+// let a ball tunnel through a wall in a single step and escape. Computes the
+// allowed x-span analytically at the ball's height (top taper → vertical body →
+// funnel) and clamps position + kills the outward velocity component. Cheap and
+// reusable by the large base. No-op in practice for the big-ball vases, so it's
+// opt-in via container config.
+export function clampToContainer(geo, b) {
+  const r = b.r;
+  let leftX, rightX;
+
+  if (b.y >= geo.bodyBotY) {
+    // Funnel region: walls taper inward from body to nozzle.
+    const f = Math.min(1, (b.y - geo.bodyBotY) / (geo.funnelBotY - geo.bodyBotY));
+    leftX  = geo.bodyLeft  + f * (geo.nozzleL  - geo.bodyLeft);
+    rightX = geo.bodyRight + f * (geo.nozzleR  - geo.bodyRight);
+    if (b.y + r > geo.funnelBotY) { b.y = geo.funnelBotY - r; if (b.vy > 0) b.vy = 0; }
+  } else if (b.y >= geo.bodyTopY + geo.topH) {
+    // Vertical body.
+    leftX = geo.bodyLeft; rightX = geo.bodyRight;
+  } else {
+    // Top taper: walls run from the (inset) ceiling corners down to the body.
+    const f = Math.max(0, (b.y - geo.bodyTopY) / geo.topH); // 0 at ceiling → 1 at body
+    leftX  = geo.bodyLeft  + geo.topInset * (1 - f);
+    rightX = geo.bodyRight - geo.topInset * (1 - f);
+    // Ceiling — but leave the tube mouth open.
+    const underTube = b.x > geo.tubeL && b.x < geo.tubeR;
+    if (b.y - r < geo.bodyTopY && !underTube) { b.y = geo.bodyTopY + r; if (b.vy < 0) b.vy = 0; }
+  }
+
+  const minX = leftX + r, maxX = rightX - r;
+  if (minX > maxX) {                 // gap narrower than a ball (near nozzle) → centre it
+    b.x = (leftX + rightX) / 2; b.vx = 0;
+  } else {
+    if (b.x < minX) { b.x = minX; if (b.vx < 0) b.vx = 0; }
+    if (b.x > maxX) { b.x = maxX; if (b.vx > 0) b.vx = 0; }
+  }
+}
+
 // ── Gate collision: closed gate blocks the tube entrance ──
 // `gate` = { t, opening }. t=0 closed, t>=1 open (no collision).
 export function resolveGate(geo, P, gate, b) {
