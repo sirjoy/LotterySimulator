@@ -138,11 +138,6 @@ export class Container {
     this.ui.clearHistory();
   }
 
-  // Whether this container needs physics this frame (idle+still → skip).
-  isActive() {
-    return !(this.simState === 'idle' && this.airPower === 0);
-  }
-
   // ── Main step (called by the manager loop) ──
   step(dt) {
     // Vase path: maxSubsteps=1 → one advance per frame with the real dt,

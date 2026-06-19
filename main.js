@@ -44,7 +44,7 @@ function frame(ts) {
   const dt = Math.min((ts - lastTS) / 1000, 1/30);
   lastTS = ts;
   for (const c of containers) {
-    if (c.isActive()) c.step(dt);
+    c.step(dt);   // advance() is near-free when idle; matches the original loop
     c.draw();
   }
   requestAnimationFrame(frame);

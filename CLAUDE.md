@@ -61,7 +61,9 @@ update both the machine and the panel.
 `Container.step(dt)` wraps `advance()` in a fixed-timestep accumulator that is **inert
 for the vase** (`maxSubsteps: 1` → exactly one `advance(dt)` per frame, identical to
 the original loop). A larger container sets `fixedDt`/`maxSubsteps` for stability.
-`main.js` skips `step()` for idle, still balls (`isActive()`), but always `draw()`s.
+`main.js` advances every container each frame (the idle branch of `advance()` is
+near-free); a sleep/idle-skip optimization for the many-container case is deferred to
+the expansion (it must not freeze balls that are still settling).
 
 ### 2. Physics (`physics.js`, driven by `Container.updateBalls`)
 Custom 2D physics in each container's **local** canvas pixel space. Tuning lives in the
