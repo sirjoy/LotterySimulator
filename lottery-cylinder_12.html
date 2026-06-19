@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pneumatic Lottery Draw</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:     #0d0f14;
+    --panel:  #13161e;
+    --chrome: #1e2330;
+    --accent: #3a8fff;
+    --amber:  #ffb330;
+    --green:  #30e08a;
+    --red:    #ff4455;
+    --text:   #c8d4e8;
+    --dim:    #5a6880;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 20px;
+    overflow: hidden;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(22px, 4vw, 40px);
+    letter-spacing: 0.12em;
+    color: #fff;
+    text-align: center;
+  }
+  h1 span { color: var(--accent); }
+
+  #app {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  #canvas-wrap { position: relative; flex-shrink: 0; }
+  canvas { display: block; }
+
+  #panel {
+    width: 205px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--chrome);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .card-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 9px;
+  }
+
+  #result-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64px;
+    line-height: 1;
+    color: var(--amber);
+    text-align: center;
+    text-shadow: 0 0 28px rgba(255,179,48,0.5);
+    min-height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color .3s, text-shadow .3s;
+  }
+  #result-number.empty { color: var(--chrome); text-shadow: none; }
+
+  #history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 96px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--chrome) transparent;
+  }
+  #history-list::-webkit-scrollbar { width: 4px; }
+  #history-list::-webkit-scrollbar-thumb { background: var(--chrome); border-radius: 2px; }
+  #history-list:empty::after {
+    content: 'No draws yet';
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+  }
+  .hist-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .hist-idx {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--dim);
+    width: 22px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .hist-chip {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--chrome);
+    color: #fff;
+    border: 2px solid transparent;
+    flex-shrink: 0;
+    animation: popIn .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  .hist-bar {
+    flex: 1;
+    height: 2px;
+    border-radius: 1px;
+    opacity: 0.5;
+  }
+  @keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+
+  #status-bar {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: .05em;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--dim);
+    flex-shrink: 0;
+    transition: background .3s, box-shadow .3s;
+  }
+  .dot.active  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.capture { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  .dot.gate    { background: var(--red);   box-shadow: 0 0 8px var(--red); }
+
+  .slider-wrap { display: flex; flex-direction: column; gap: 7px; }
+  .slider-row  { display: flex; justify-content: space-between; align-items: center; }
+  .slider-val  { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%; height: 4px;
+    background: var(--chrome);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    width: 100%;
+    padding: 12px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: .1em;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s, background .2s, opacity .2s;
+  }
+  .btn-primary:active:not(:disabled) { transform: translateY(1px); }
+  .btn-primary:disabled { cursor: not-allowed; opacity: 0.38; }
+
+  #btn-blow {
+    background: linear-gradient(135deg, var(--accent), #1a5fcf);
+    box-shadow: 0 4px 18px rgba(58,143,255,.35);
+  }
+  #btn-blow:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 26px rgba(58,143,255,.5); }
+
+  #btn-gate {
+    background: linear-gradient(135deg, #e05c00, #c03000);
+    box-shadow: 0 4px 18px rgba(220,80,0,.3);
+  }
+  #btn-gate:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 26px rgba(220,80,0,.45); }
+  #btn-gate.ready {
+    background: linear-gradient(135deg, #e08800, #c05500);
+    box-shadow: 0 4px 18px rgba(220,140,0,.4);
+    animation: gatePulse 1s ease-in-out infinite;
+  }
+  @keyframes gatePulse {
+    0%,100% { box-shadow: 0 4px 18px rgba(220,140,0,.4); }
+    50%      { box-shadow: 0 4px 28px rgba(255,179,48,.75); }
+  }
+
+  #btn-reset {
+    width: 100%;
+    padding: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--dim);
+    background: transparent;
+    border: 1px solid var(--chrome);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color .2s, border-color .2s;
+  }
+  #btn-reset:hover { color: var(--text); border-color: var(--dim); }
+
+  #captured-stage {
+    position: absolute;
+    top: -72px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 52px; height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>PNEUMATIC <span>LOTTERY</span> DRAW</h1>
+
+<div id="app">
+  <div id="canvas-wrap">
+    <div id="captured-stage"></div>
+    <canvas id="c"></canvas>
+  </div>
+
+  <div id="panel">
+    <div class="card">
+      <div class="card-label">Result</div>
+      <div id="result-number" class="empty">–</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Draw History</div>
+      <div id="history-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Air Intensity</div>
+      <div class="slider-wrap">
+        <div class="slider-row">
+          <span style="font-size:12px;color:var(--dim)">Blower power</span>
+          <span class="slider-val" id="air-val">75%</span>
+        </div>
+        <input type="range" id="air-slider" min="30" max="130" value="75">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Status</div>
+      <div id="status-bar">
+        <div class="dot" id="dot"></div>
+        <span id="status-text">Ready</span>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="btn-blow">▶ BLOW AIR</button>
+    <button class="btn-primary" id="btn-gate" disabled>⊙ OPEN GATE</button>
+    <button id="btn-reset">Reset history</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  PHYSICS CONSTANTS
+// ═══════════════════════════════════════════════
+const GRAVITY          = 1280;
+const DRAG_ON          = 0.004;  // near-zero drag when air is on — balls keep kinetic energy
+const DRAG_OFF         = 0.020;  // settling drag
+const REST_BALL        = 0.82;   // bouncy ball-ball collisions
+const REST_WALL        = 0.72;   // walls throw balls back hard
+const REST_FLOOR       = 0.55;   // floor has more bounce
+const FLOOR_FRICTION   = 0.88;
+
+// Jet — much stronger so balls genuinely fly around the chamber
+const NOZZLE_SIGMA     = 35;    // wider Gaussian — more balls directly hit by jet
+const JET_PEAK         = 4400;  // px/s² — at 75% power = 3300, well above 2×gravity
+const JET_TOP_FRAC     = 0.48;  // jet still meaningful at top
+
+// Turbulence — violent, fast-switching gusts like real pressurised chambers
+const TURB_LAT         = 540;   // strong lateral gusts
+const TURB_VERT        = 300;   // significant vertical variation
+const TURB_FRAMES      = 5;     // switch every ~80ms — genuinely chaotic
+
+// Pulse — slightly more aggressive
+const PULSE_FREQ       = 2.1;
+const PULSE_AMP        = 0.11;
+
+// Timing
+const RAMP_TIME        = 1.4;   // s
+const CAPTURE_BOOST    = 950;   // px/s — strong enough to clear tube fast
+const CHANNEL_STR      = 18;
+const SETTLE_TIME      = 2.8;
+
+// Gate animation
+const GATE_OPEN_SPEED  = 5.5;   // snaps open in ~0.18s
+
+// ═══════════════════════════════════════════════
+//  CANVAS & GEOMETRY
+// ═══════════════════════════════════════════════
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const CW = 310, CH = 520;
+canvas.width = CW; canvas.height = CH;
+
+// The container is a VASE shape:
+//   Upper body  – vertical walls, full width
+//   Lower funnel – walls angled inward ~32° meeting at nozzle
+//
+// All x coords are absolute canvas pixels.
+
+const BODY_TOP_Y  = 40;        // top of glass body
+const BODY_BOT_Y  = 230;       // where funnel begins
+const FUNNEL_BOT_Y= 480;       // nozzle level (floor of container)
+const BODY_LEFT   = 52;        // left wall x of upper body
+const BODY_RIGHT  = 258;       // right wall x
+const NOZZLE_HALF = 18;        // half-width of nozzle opening at floor
+const CENTER_X    = (BODY_LEFT + BODY_RIGHT) / 2;  // 155
+
+// Funnel corners (where vertical wall meets angled wall)
+const FUNNEL_L_X  = BODY_LEFT;
+const FUNNEL_R_X  = BODY_RIGHT;
+const NOZZLE_L    = CENTER_X - NOZZLE_HALF;
+const NOZZLE_R    = CENTER_X + NOZZLE_HALF;
+
+// Top chamfer — mild inward taper at the top corners (~13°)
+// Wall goes from (BODY_LEFT, BODY_TOP_Y + TOP_H) straight up then
+// angles inward to (BODY_LEFT + TOP_INSET, BODY_TOP_Y)
+const TOP_INSET   = 14;   // px inward at the very top
+const TOP_H       = 55;   // height over which taper occurs
+
+// Tube (exit chute at top-center)
+const TUBE_W      = 32;
+const TUBE_H      = 62;
+const TUBE_L      = CENTER_X - TUBE_W / 2;
+const TUBE_R      = CENTER_X + TUBE_W / 2;
+const TUBE_TOP_Y  = BODY_TOP_Y - TUBE_H;
+const TUBE_BOT_Y  = BODY_TOP_Y;
+
+// Ball
+const BALL_R = 13;
+
+// ═══════════════════════════════════════════════
+//  WALL SEGMENTS for collision
+//  Each segment: { x1,y1, x2,y2, nx,ny }
+//  nx,ny = inward-pointing unit normal
+// ═══════════════════════════════════════════════
+// We define them so normals point INTO the interior.
+// Interior is to the RIGHT of the direction (x1,y1)->(x2,y2)
+// when listed counter-clockwise from inside.
+
+function makeWallSegments() {
+  const segs = [];
+  function seg(x1,y1,x2,y2,nx,ny) {
+    const len = Math.hypot(nx,ny);
+    segs.push({ x1,y1,x2,y2, nx:nx/len, ny:ny/len });
+  }
+
+  // LEFT lower wall — vertical from funnel junction to top-taper start
+  seg(BODY_LEFT, BODY_TOP_Y + TOP_H, BODY_LEFT, BODY_BOT_Y,  1, 0);
+
+  // LEFT top taper — angled inward from (BODY_LEFT, BODY_TOP_Y+TOP_H) → (BODY_LEFT+TOP_INSET, BODY_TOP_Y)
+  {
+    const dx = TOP_INSET, dy = -TOP_H;          // direction of segment
+    seg(BODY_LEFT, BODY_TOP_Y+TOP_H,
+        BODY_LEFT+TOP_INSET, BODY_TOP_Y,
+        -dy, dx);  // inward normal = rotate seg dir 90° CCW
+  }
+
+  // LEFT funnel wall
+  {
+    const dx = NOZZLE_L - BODY_LEFT, dy = FUNNEL_BOT_Y - BODY_BOT_Y;
+    seg(BODY_LEFT, BODY_BOT_Y, NOZZLE_L, FUNNEL_BOT_Y,  dy, -dx);
+  }
+
+  // RIGHT lower wall — vertical
+  seg(BODY_RIGHT, BODY_BOT_Y, BODY_RIGHT, BODY_TOP_Y + TOP_H,  -1, 0);
+
+  // RIGHT top taper — (BODY_RIGHT-TOP_INSET, BODY_TOP_Y) → (BODY_RIGHT, BODY_TOP_Y+TOP_H)
+  {
+    const dx = TOP_INSET, dy = TOP_H;
+    // Inward normal must point LEFT into chamber: rotate seg CCW → (-dy, dx) = (-TOP_H, TOP_INSET)
+    seg(BODY_RIGHT-TOP_INSET, BODY_TOP_Y,
+        BODY_RIGHT, BODY_TOP_Y+TOP_H,
+        -dy, dx);  // inward normal = (-TOP_H, TOP_INSET) → points left+up into chamber
+  }
+
+  // RIGHT funnel wall
+  {
+    const dx = BODY_RIGHT - NOZZLE_R, dy = BODY_BOT_Y - FUNNEL_BOT_Y;
+    seg(NOZZLE_R, FUNNEL_BOT_Y, BODY_RIGHT, BODY_BOT_Y,  dy, -dx);
+  }
+
+  // FLOOR (nozzle span)
+  seg(NOZZLE_L, FUNNEL_BOT_Y, NOZZLE_R, FUNNEL_BOT_Y,  0, -1);
+
+  // CEILING — left of tube (from left taper corner to tube left)
+  seg(BODY_LEFT+TOP_INSET, BODY_TOP_Y, CENTER_X - TUBE_W/2, BODY_TOP_Y,  0, 1);
+  // CEILING — right of tube
+  seg(CENTER_X + TUBE_W/2, BODY_TOP_Y, BODY_RIGHT-TOP_INSET, BODY_TOP_Y,  0, 1);
+
+  return segs;
+}
+
+const WALL_SEGS = makeWallSegments();
+
+// Gate: a physical blocker across tube entrance at y = BODY_TOP_Y
+// gateT = 0 → closed (blocking), 1 → fully open (slid to side)
+let gateT = 0;   // 0=closed, 1=open
+let gateOpening = false;
+
+// ═══════════════════════════════════════════════
+//  COLORS
+// ═══════════════════════════════════════════════
+const BALL_COLORS = [
+  '#ff4d6d','#ff8c42','#ffd166','#06d6a0','#118ab2',
+  '#9b5de5','#f15bb5','#00bbf9','#e9ff70','#70e000'
+];
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+// 'idle' | 'ramping' | 'tumbling' | 'gate_open' | 'capturing' | 'settling'
+let simState    = 'idle';
+let stateTimer  = 0;
+let airPower    = 0;
+let airBase     = 0;
+let airSetting  = 0.75;
+let globalTime  = 0;
+let chosenBall  = null;
+let history     = [];
+let balls       = [];
+let airParts    = [];
+
+// ═══════════════════════════════════════════════
+//  BALL INIT  — random scatter + pre-settle
+// ═══════════════════════════════════════════════
+function initBalls() {
+  balls = [];
+  // Scatter randomly in funnel + lower body region
+  for (let i = 0; i < 10; i++) {
+    // x: within funnel walls at a given y
+    const randY = FUNNEL_BOT_Y - BALL_R - Math.random() * (FUNNEL_BOT_Y - BODY_BOT_Y + 100);
+    const frac  = Math.max(0, (randY - BODY_BOT_Y) / (FUNNEL_BOT_Y - BODY_BOT_Y));
+    const wallL = BODY_LEFT  + frac * (NOZZLE_L - BODY_LEFT)  + BALL_R * 1.4;
+    const wallR = BODY_RIGHT + frac * (NOZZLE_R - BODY_RIGHT) - BALL_R * 1.4;
+    const randX = wallL + Math.random() * Math.max(1, wallR - wallL);
+    balls.push({
+      id: i, label: String(i),
+      x: randX, y: randY,
+      vx: (Math.random()-.5)*50, vy: Math.random()*30,
+      r: BALL_R,
+      color: BALL_COLORS[i],
+      turbX: 0, turbY: 0,
+      turbTimer: Math.floor(Math.random() * TURB_FRAMES),
+      captured: false,
+    });
+  }
+  // Pre-settle: gravity + collisions, no air
+  for (let s = 0; s < 120; s++) {
+    const dt = 1/60;
+    for (let b of balls) {
+      b.vy += GRAVITY * dt;
+      b.vx *= 0.84; b.vy *= 0.84;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      resolveSegments(b, 0.25);
+    }
+    resolveBallCollisions(0.25);
+  }
+  for (let b of balls) { b.vx = 0; b.vy = 0; }
+}
+
+// ═══════════════════════════════════════════════
+//  AIR PARTICLES
+// ═══════════════════════════════════════════════
+function initAirParts() {
+  airParts = [];
+  for (let i = 0; i < 44; i++) airParts.push(newPart(true));
+}
+function newPart(randomY) {
+  const s = 14;
+  return {
+    x: CENTER_X + (Math.random()-.5)*s,
+    y: randomY ? BODY_TOP_Y + Math.random()*(FUNNEL_BOT_Y-BODY_TOP_Y) : FUNNEL_BOT_Y-2,
+    vx: (Math.random()-.5)*16,
+    vy: -(80 + Math.random()*170),
+    r:  1.0 + Math.random()*2.0,
+    life: 0, maxLife: 0.45 + Math.random()*0.7,
+  };
+}
+function updateAirParts(dt) {
+  if (airPower < 0.02) return;
+  for (let p of airParts) {
+    p.life += dt;
+    const t = p.life / p.maxLife;
+    p.vx += (Math.random()-.5)*14; p.vx *= 0.94;
+    p.x += p.vx*dt; p.y += p.vy*dt*airPower;
+    p.alpha = Math.sin(t*Math.PI)*0.16*airPower;
+    if (p.life >= p.maxLife || p.y < BODY_TOP_Y - 20) Object.assign(p, newPart(false));
+  }
+}
+function drawAirParts() {
+  if (airPower < 0.02) return;
+  ctx.save();
+  for (let p of airParts) {
+    ctx.globalAlpha = p.alpha || 0;
+    ctx.fillStyle = '#9fd8ff';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════
+//  JET FORCE
+// ═══════════════════════════════════════════════
+function jetForce(bx, by) {
+  if (airPower < 0.01) return 0;
+  const dx = bx - CENTER_X;
+  const horiz = Math.exp(-(dx*dx)/(2*NOZZLE_SIGMA*NOZZLE_SIGMA));
+  const hRatio = Math.max(0, Math.min(1, (FUNNEL_BOT_Y - by)/(FUNNEL_BOT_Y - BODY_TOP_Y)));
+  const vert  = 1.0 - (1.0 - JET_TOP_FRAC)*hRatio;
+  return airPower * JET_PEAK * horiz * vert;
+}
+
+// ═══════════════════════════════════════════════
+//  SEGMENT COLLISION
+//  Resolves ball against each wall segment.
+// ═══════════════════════════════════════════════
+function resolveSegments(b, restitution) {
+  for (let seg of WALL_SEGS) {
+    // Vector along segment
+    const ex = seg.x2 - seg.x1, ey = seg.y2 - seg.y1;
+    const len2 = ex*ex + ey*ey;
+    if (len2 < 1e-8) continue;
+    // Project ball center onto segment
+    const t = Math.max(0, Math.min(1, ((b.x-seg.x1)*ex + (b.y-seg.y1)*ey)/len2));
+    const cx = seg.x1 + t*ex, cy = seg.y1 + t*ey;
+    const dx = b.x - cx, dy = b.y - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist < b.r && dist > 1e-5) {
+      // Check if ball is on the interior side (dot with inward normal > 0 when inside)
+      const dot = dx*seg.nx + dy*seg.ny;
+      if (dot < b.r) {
+        // Push out along inward normal
+        const pen = b.r - dot;
+        b.x += seg.nx * pen;
+        b.y += seg.ny * pen;
+        // Reflect velocity along normal
+        const vDot = b.vx*seg.nx + b.vy*seg.ny;
+        if (vDot < 0) {
+          b.vx -= (1 + restitution) * vDot * seg.nx;
+          b.vy -= (1 + restitution) * vDot * seg.ny;
+          // Tangential friction on floor
+          if (Math.abs(seg.ny) > 0.7) {
+            b.vx *= FLOOR_FRICTION;
+          }
+        }
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  BALL-BALL COLLISION
+// ═══════════════════════════════════════════════
+function resolveBallCollisions(rest) {
+  for (let i = 0; i < balls.length; i++) {
+    for (let j = i+1; j < balls.length; j++) {
+      const a = balls[i], b = balls[j];
+      if (a.captured || b.captured) continue;
+      const dx = b.x-a.x, dy = b.y-a.y;
+      const d = Math.hypot(dx,dy);
+      const minD = a.r+b.r;
+      if (d < minD && d > 1e-5) {
+        const nx=dx/d, ny=dy/d;
+        const pen=(minD-d)/2;
+        a.x -= nx*pen; a.y -= ny*pen;
+        b.x += nx*pen; b.y += ny*pen;
+        const dvn = (b.vx-a.vx)*nx + (b.vy-a.vy)*ny;
+        if (dvn < 0) {
+          const imp = dvn * rest;
+          a.vx += imp*nx; a.vy += imp*ny;
+          b.vx -= imp*nx; b.vy -= imp*ny;
+        }
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  GATE COLLISION  (closed gate blocks tube entrance)
+//  Gate is at y = BODY_TOP_Y, spanning tube x range.
+//  Only active when gateT < 1.
+// ═══════════════════════════════════════════════
+function resolveGate(b) {
+  if (gateT >= 1.0) return; // open — no collision
+  // Gate slides to the right as it opens. Its right edge goes from TUBE_R to TUBE_R + gap.
+  // Left edge stays at TUBE_L until fully slid out.
+  // Model: gate covers [TUBE_L, TUBE_R] when gateT=0; right edge moves to +inf when opening.
+  const gateY = BODY_TOP_Y;
+  // Only collide balls near gate level
+  if (b.y - b.r > gateY + 4) return;
+  // Check if ball is horizontally within the gate
+  // Gate currently covers TUBE_L + gateT*(TUBE_W) to TUBE_R — slides LEFT to RIGHT
+  const gateLeft  = TUBE_L + gateT * (TUBE_W + BALL_R*2 + 4);
+  const gateRight = TUBE_R;
+  if (b.x + b.r < gateLeft || b.x - b.r > gateRight) return;
+  // Check vertical penetration (ball above gate = just below ceiling which is already handled)
+  // We want to stop ball going UP through gate
+  if (b.y - b.r < gateY && b.vy < 0) {
+    b.y = gateY + b.r;
+    b.vy = Math.abs(b.vy) * REST_WALL * 0.5;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  BALL UPDATE
+// ═══════════════════════════════════════════════
+function updateBalls(dt) {
+  const airOn = (simState==='ramping'||simState==='tumbling'||
+                 simState==='gate_open'||simState==='capturing');
+  const drag  = airOn ? DRAG_ON : DRAG_OFF;
+
+  for (let b of balls) {
+    if (b.captured) continue;
+
+    let ax = 0, ay = GRAVITY;
+
+    if (airOn && airPower > 0.01) {
+      // ── Jet lift: Gaussian profile from nozzle ──
+      ay -= jetForce(b.x, b.y);
+
+      // Skip random forces on the chosen ball — it needs a clean upward path
+      if (b !== chosenBall || simState !== 'capturing') {
+        // ── Band-limited turbulence ──
+        b.turbTimer--;
+        if (b.turbTimer <= 0) {
+          b.turbX = (Math.random()-.5) * 2 * TURB_LAT  * airPower;
+          b.turbY = (Math.random()-.5) * 2 * TURB_VERT * airPower;
+          b.turbTimer = TURB_FRAMES + Math.floor(Math.random()*5);
+        }
+        ax += b.turbX;
+        ay += b.turbY;
+
+        // ── Anti-hover micro-kick ──
+        ay += (Math.random()-.5) * GRAVITY * 0.55 * airPower;
+        ax += (Math.random()-.5) * TURB_LAT * 0.35 * airPower;
+      }
+    }
+
+    b.vx *= (1-drag); b.vy *= (1-drag);
+
+    // Capture channeling
+    if (b === chosenBall && simState === 'capturing') {
+      ax += (CENTER_X - b.x) * CHANNEL_STR;
+    }
+
+    b.vx += ax*dt; b.vy += ay*dt;
+
+    // Speed cap
+    const spd = Math.hypot(b.vx, b.vy);
+    if (spd > 1200) { b.vx *= 1200/spd; b.vy *= 1200/spd; }
+
+    b.x += b.vx*dt; b.y += b.vy*dt;
+
+    resolveSegments(b, REST_WALL);
+    resolveGate(b);
+
+    // ── Tube exit boundary ──
+    // When gate is open (gateT >= 1), the tube gap has no ceiling.
+    // Any ball that enters the tube zone gets captured immediately —
+    // the first one through wins. This also prevents non-chosen balls
+    // from flying out and disappearing.
+    const inTubeX = b.x > TUBE_L + b.r * 0.5 && b.x < TUBE_R - b.r * 0.5;
+    if (inTubeX && b.y - b.r < BODY_TOP_Y && gateT >= 1.0) {
+      // Ball has entered the tube — capture it now regardless of which ball it is
+      if ((simState === 'capturing' || simState === 'gate_open') && !b.captured) {
+        b.captured = true;
+        chosenBall = b; // this ball wins, whatever it is
+        finishCapture(b);
+      }
+    }
+  }
+
+  resolveBallCollisions(REST_BALL);
+}
+
+// ═══════════════════════════════════════════════
+//  CAPTURE
+// ═══════════════════════════════════════════════
+function triggerCapture() {
+  // Pick the ball best positioned for capture:
+  // Favour balls that are HIGH (small y), CENTRAL (small |dx|),
+  // and moving UPWARD (negative vy). Upward momentum weighted heavily
+  // so a naturally-rising ball gets selected — more realistic.
+  let best = null, bestScore = Infinity;
+  for (let b of balls) {
+    if (b.captured) continue;
+    const heightScore  = (b.y - BODY_TOP_Y) * 0.8;          // lower y = better
+    const centerScore  = Math.abs(b.x - CENTER_X) * 1.2;    // closer to center = better
+    const momentumBonus = Math.max(0, b.vy) * 0.15;          // upward vy lowers score
+    const score = heightScore + centerScore - momentumBonus;
+    if (score < bestScore) { bestScore = score; best = b; }
+  }
+  if (!best) return;
+  chosenBall = best;
+  simState = 'capturing';
+  // Strong upward launch — enough to clear the full tube height quickly.
+  // Also clamp x toward center so it fits through the tube.
+  best.x  = CENTER_X + (best.x - CENTER_X) * 0.3; // snap 70% toward center
+  best.vx = 0;
+  best.vy = -CAPTURE_BOOST;
+  setDot('capture'); setStatus('Capturing…');
+  setBtnGate(false, false);
+}
+
+function finishCapture(ball) {
+  simState = 'settling';
+  stateTimer = 0;
+  // Kill air immediately — pump stops the moment a ball is captured
+  airBase  = 0;
+  airPower = 0;
+  gateT = 1.0; // leave gate open visually but physics already done
+  history.push(ball.label);
+  updateResult(ball);
+  updateHistory();
+  showCapturedStage(ball);
+  setDot(''); setStatus('Settling…');
+  setBtnGate(false, false);
+  setTimeout(() => {
+    simState = 'idle';
+    gateT = 0; gateOpening = false;
+    setDot(''); setStatus('Ready');
+    setBtnBlow(true);
+  }, SETTLE_TIME * 1000);
+}
+
+function showCapturedStage(ball) {
+  const s = document.getElementById('captured-stage');
+  const uid = ball.id + '_' + Date.now();
+  s.innerHTML = `<svg width="52" height="52" viewBox="0 0 52 52">
+    <defs><radialGradient id="cg${uid}" cx="38%" cy="34%" r="60%">
+      <stop offset="0%" stop-color="white" stop-opacity=".55"/>
+      <stop offset="100%" stop-color="${ball.color}"/>
+    </radialGradient></defs>
+    <circle cx="26" cy="26" r="24" fill="url(#cg${uid})" stroke="white" stroke-width="1.5" stroke-opacity=".25"/>
+    <text x="26" y="32" text-anchor="middle" font-family="Bebas Neue,sans-serif" font-size="22" fill="white">${ball.label}</text>
+  </svg>`;
+  s.style.animation = 'none'; void s.offsetWidth;
+  s.style.animation = 'popIn .5s cubic-bezier(.34,1.56,.64,1)';
+}
+
+// ═══════════════════════════════════════════════
+//  RENDERING
+// ═══════════════════════════════════════════════
+function drawScene() {
+  ctx.clearRect(0,0,CW,CH);
+  drawContainer();
+  drawNozzle();
+  drawAirParts();
+  for (let b of balls) drawBall(b);
+  drawGate();
+  drawTube();
+}
+
+// Build the container path (vase shape with chamfered top corners)
+function containerPath() {
+  ctx.beginPath();
+  // Start at left taper top corner, go clockwise:
+  ctx.moveTo(BODY_LEFT + TOP_INSET, BODY_TOP_Y);            // top-left chamfer end
+  ctx.lineTo(BODY_RIGHT - TOP_INSET, BODY_TOP_Y);           // top edge
+  ctx.lineTo(BODY_RIGHT, BODY_TOP_Y + TOP_H);               // top-right chamfer
+  ctx.lineTo(BODY_RIGHT, BODY_BOT_Y);                       // right upper wall
+  ctx.lineTo(NOZZLE_R,   FUNNEL_BOT_Y);                     // right funnel
+  ctx.lineTo(NOZZLE_L,   FUNNEL_BOT_Y);                     // floor / nozzle
+  ctx.lineTo(BODY_LEFT,  BODY_BOT_Y);                       // left funnel
+  ctx.lineTo(BODY_LEFT,  BODY_TOP_Y + TOP_H);               // left upper wall
+  ctx.closePath();  // closes back to top-left chamfer start
+}
+
+function drawContainer() {
+  // Exterior glow
+  if (airPower > 0.04) {
+    const g = ctx.createRadialGradient(CENTER_X, FUNNEL_BOT_Y, 0, CENTER_X, FUNNEL_BOT_Y, 160);
+    g.addColorStop(0, `rgba(50,130,255,${0.30*airPower})`);
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g; ctx.fillRect(0, FUNNEL_BOT_Y-40, CW, 80);
+  }
+
+  // Interior fill
+  ctx.save();
+  containerPath();
+  ctx.fillStyle = '#080c16';
+  ctx.fill();
+  ctx.restore();
+
+  // Air jet column (narrow glow from nozzle upward)
+  if (airPower > 0.03) {
+    ctx.save();
+    containerPath(); ctx.clip();
+    const jw = 45 + 30*airPower;
+    const jg = ctx.createRadialGradient(CENTER_X, FUNNEL_BOT_Y, 0, CENTER_X, FUNNEL_BOT_Y, CW*0.8);
+    jg.addColorStop(0,   `rgba(50,130,255,${0.32*airPower})`);
+    jg.addColorStop(0.25,`rgba(50,130,255,${0.10*airPower})`);
+    jg.addColorStop(1,   'transparent');
+    ctx.fillStyle = jg;
+    ctx.fillRect(CENTER_X-jw, BODY_TOP_Y, jw*2, FUNNEL_BOT_Y-BODY_TOP_Y);
+    ctx.restore();
+  }
+
+  // Glass walls — specular left
+  ctx.save();
+  containerPath();
+  const gl = ctx.createLinearGradient(BODY_LEFT, 0, BODY_LEFT+26, 0);
+  gl.addColorStop(0, 'rgba(180,215,255,0.11)');
+  gl.addColorStop(.6, 'rgba(180,215,255,0.02)');
+  gl.addColorStop(1, 'transparent');
+  ctx.fillStyle = gl; ctx.fill();
+  ctx.strokeStyle = 'rgba(150,200,255,0.30)';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+  ctx.restore();
+
+  // Funnel angle accent lines (visual reinforcement of the angled walls)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(100,160,255,0.12)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const frac = i / 4;
+    const lx = BODY_LEFT + frac*(NOZZLE_L-BODY_LEFT);
+    const ly = BODY_BOT_Y + frac*(FUNNEL_BOT_Y-BODY_BOT_Y);
+    const rx = BODY_RIGHT + frac*(NOZZLE_R-BODY_RIGHT);
+    ctx.beginPath();
+    ctx.moveTo(lx, ly); ctx.lineTo(rx, ly);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawNozzle() {
+  const nw = NOZZLE_HALF*2, ny = FUNNEL_BOT_Y;
+  const nx = CENTER_X - NOZZLE_HALF;
+  ctx.save();
+  ctx.fillStyle = `rgba(70,150,255,${0.12+airPower*0.42})`;
+  ctx.strokeStyle = `rgba(70,150,255,${0.35+airPower*0.55})`;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.rect(nx, ny, nw, 7); ctx.fill(); ctx.stroke();
+  // Slots
+  ctx.strokeStyle = `rgba(100,180,255,${0.4+airPower*0.45})`;
+  ctx.lineWidth = 1;
+  for (let i=1;i<4;i++){
+    const sx = nx + i*nw/4;
+    ctx.beginPath(); ctx.moveTo(sx,ny+1); ctx.lineTo(sx,ny+6); ctx.stroke();
+  }
+  if (airPower>0.05) {
+    ctx.shadowColor='#4090ff'; ctx.shadowBlur=14*airPower;
+    ctx.strokeStyle=`rgba(130,200,255,${0.75*airPower})`;
+    ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.moveTo(nx,ny); ctx.lineTo(nx+nw,ny); ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+  ctx.restore();
+}
+
+function drawGate() {
+  if (gateT >= 1.0) return;
+  // Gate slides to the right when opening.
+  // At gateT=0: full bar from TUBE_L to TUBE_R
+  // At gateT=1: slid fully right (invisible)
+  const gateY   = BODY_TOP_Y;
+  const slideX  = gateT * (TUBE_W + 6);
+  const barL    = TUBE_L + slideX;
+  const barR    = TUBE_R;
+  if (barL >= barR) return;
+
+  ctx.save();
+  // Gate bar
+  const gateAlpha = 1 - gateT*0.6;
+  ctx.fillStyle = `rgba(255,90,50,${0.75*gateAlpha})`;
+  ctx.strokeStyle = `rgba(255,140,80,${0.9*gateAlpha})`;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.rect(barL, gateY-4, barR-barL, 4);
+  ctx.fill(); ctx.stroke();
+
+  // Hinge circle on left side
+  ctx.fillStyle = `rgba(255,160,80,${0.8*gateAlpha})`;
+  ctx.beginPath(); ctx.arc(barL+3, gateY-2, 3, 0, Math.PI*2); ctx.fill();
+
+  if (gateT < 0.1) {
+    // Glow when closed
+    ctx.shadowColor = '#ff5522';
+    ctx.shadowBlur  = 8;
+    ctx.strokeStyle = `rgba(255,100,60,0.6)`;
+    ctx.beginPath(); ctx.moveTo(barL, gateY); ctx.lineTo(barR, gateY); ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+}
+
+function drawTube() {
+  // Exit tube walls above cylinder
+  ctx.save();
+  ctx.fillStyle = '#080c16';
+  ctx.fillRect(TUBE_L, TUBE_TOP_Y, TUBE_W, TUBE_H);
+  ctx.strokeStyle = 'rgba(150,200,255,0.26)';
+  ctx.lineWidth = 1.8;
+  // Left wall
+  ctx.beginPath(); ctx.moveTo(TUBE_L, TUBE_TOP_Y+3); ctx.lineTo(TUBE_L, BODY_TOP_Y); ctx.stroke();
+  // Right wall
+  ctx.beginPath(); ctx.moveTo(TUBE_R, TUBE_TOP_Y+3); ctx.lineTo(TUBE_R, BODY_TOP_Y); ctx.stroke();
+  // Top cap
+  ctx.beginPath(); ctx.moveTo(TUBE_L, TUBE_TOP_Y+3); ctx.lineTo(TUBE_R, TUBE_TOP_Y+3); ctx.stroke();
+  // Label
+  ctx.font='8px DM Mono,monospace'; ctx.fillStyle='rgba(150,200,255,0.35)';
+  ctx.textAlign='center';
+  ctx.fillText('EXIT', CENTER_X, TUBE_TOP_Y-3);
+  ctx.restore();
+}
+
+function drawBall(b) {
+  if (b.captured) return;
+  ctx.save();
+  if (airPower > 0.05) { ctx.shadowColor=b.color; ctx.shadowBlur=8*airPower; }
+  const g = ctx.createRadialGradient(
+    b.x-b.r*.3, b.y-b.r*.3, b.r*.04,
+    b.x, b.y, b.r
+  );
+  g.addColorStop(0,'rgba(255,255,255,.70)');
+  g.addColorStop(.3, b.color);
+  g.addColorStop(1, shadeColor(b.color,-55));
+  ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+  ctx.fillStyle=g; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=.8; ctx.stroke();
+  ctx.shadowBlur=0;
+  ctx.font=`600 ${Math.round(b.r*1.0)}px Inter,sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(255,255,255,.95)';
+  ctx.fillText(b.label, b.x, b.y+.5);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════
+let lastTS = null;
+
+function loop(ts) {
+  if (!lastTS) lastTS = ts;
+  const dt = Math.min((ts-lastTS)/1000, 1/30);
+  lastTS = ts; globalTime += dt;
+
+  const pulse = PULSE_AMP*Math.sin(globalTime*PULSE_FREQ*Math.PI*2)
+              + PULSE_AMP*.5*Math.sin(globalTime*PULSE_FREQ*1.73*Math.PI*2)
+              + PULSE_AMP*.25*Math.sin(globalTime*PULSE_FREQ*3.1*Math.PI*2);
+
+  switch(simState) {
+    case 'ramping':
+      stateTimer += dt;
+      airBase = Math.min(stateTimer/RAMP_TIME, 1.0)*airSetting;
+      airPower = Math.max(0, airBase+pulse*airBase);
+      setStatus(`Air ramping… ${Math.round(airBase*100)}%`);
+      if (stateTimer >= RAMP_TIME) {
+        simState='tumbling'; stateTimer=0;
+        setDot('active'); setStatus('Balls tumbling — open gate when ready');
+        setBtnGate(true, true); // enable & pulse
+      }
+      break;
+
+    case 'tumbling':
+      airBase = airSetting;
+      airPower = Math.max(0, airBase+pulse*airBase);
+      break;
+
+    case 'gate_open':
+      airBase = airSetting;
+      airPower = Math.max(0, airBase+pulse*airBase);
+      // Animate gate sliding open
+      if (gateOpening && gateT < 1.0) {
+        gateT = Math.min(1.0, gateT + GATE_OPEN_SPEED*dt);
+        // The instant the gate is fully open, capture immediately —
+        // real machines shoot a ball through the moment the path clears.
+        if (gateT >= 1.0) {
+          triggerCapture();
+        }
+      }
+      break;
+
+    case 'capturing':
+      // Keep full air pressure during capture — the chosen ball needs it to exit
+      airBase  = airSetting;
+      airPower = Math.max(0, airBase + pulse * airBase);
+      break;
+
+    case 'settling':
+      airBase *= 0.86; airPower = Math.max(0, airBase);
+      if (airPower < 0.01) airPower = 0;
+      break;
+
+    case 'idle':
+      airPower=0; airBase=0;
+      break;
+  }
+
+  updateBalls(dt);
+  updateAirParts(dt);
+  drawScene();
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════
+function updateResult(ball) {
+  const el = document.getElementById('result-number');
+  el.textContent=ball.label; el.className='';
+  el.style.color=ball.color;
+  el.style.textShadow=`0 0 26px ${ball.color}99`;
+}
+function updateHistory() {
+  const el  = document.getElementById('history-list');
+  const idx = history.length;
+  const lbl = history[idx - 1];
+  const col = BALL_COLORS[parseInt(lbl)];
+
+  const row  = document.createElement('div');
+  row.className = 'hist-row';
+
+  const num  = document.createElement('div');
+  num.className = 'hist-idx';
+  num.textContent = '#' + idx;
+
+  const chip = document.createElement('div');
+  chip.className = 'hist-chip';
+  chip.textContent = lbl;
+  chip.style.borderColor = col;
+
+  const bar  = document.createElement('div');
+  bar.className = 'hist-bar';
+  bar.style.background = col;
+
+  row.appendChild(num);
+  row.appendChild(chip);
+  row.appendChild(bar);
+  el.appendChild(row);
+
+  // Scroll to the newest entry
+  el.scrollTop = el.scrollHeight;
+}
+function setStatus(t) { document.getElementById('status-text').textContent=t; }
+function setDot(cls)  { document.getElementById('dot').className='dot '+cls; }
+
+function setBtnBlow(enabled) {
+  const b=document.getElementById('btn-blow');
+  b.disabled=!enabled;
+}
+function setBtnGate(enabled, pulse) {
+  const b=document.getElementById('btn-gate');
+  b.disabled=!enabled;
+  b.className='btn-primary'+(pulse?' ready':'');
+}
+
+// ═══════════════════════════════════════════════
+//  RESET + START
+// ═══════════════════════════════════════════════
+function startBlow() {
+  chosenBall=null; airBase=0; airPower=0;
+  stateTimer=0; gateT=0; gateOpening=false;
+  initBalls(); initAirParts();
+  document.getElementById('captured-stage').innerHTML='';
+  const rn=document.getElementById('result-number');
+  rn.textContent='–'; rn.className='empty';
+  rn.style.color=''; rn.style.textShadow='';
+  simState='ramping';
+  setBtnBlow(false); setBtnGate(false,false);
+  setDot('active'); setStatus('Air ramping…');
+}
+
+function openGate() {
+  if (simState !== 'tumbling') return;
+  simState = 'gate_open';
+  gateOpening = true;
+  setBtnGate(false, false);
+  setDot('gate'); setStatus('Gate opening…');
+}
+
+// ═══════════════════════════════════════════════
+//  EVENT LISTENERS
+// ═══════════════════════════════════════════════
+document.getElementById('btn-blow').addEventListener('click', () => {
+  if (simState !== 'idle') return;
+  startBlow();
+});
+document.getElementById('btn-gate').addEventListener('click', () => {
+  if (simState !== 'tumbling') return;
+  openGate();
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  history=[]; document.getElementById('history-list').innerHTML='';
+});
+document.getElementById('air-slider').addEventListener('input', function() {
+  airSetting = this.value / 100;
+  document.getElementById('air-val').textContent = this.value + '%';
+});
+
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+function shadeColor(hex,amt) {
+  let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgb(${Math.max(0,Math.min(255,r+amt))},${Math.max(0,Math.min(255,g+amt))},${Math.max(0,Math.min(255,b+amt))})`;
+}
+
+// ═══════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════
+initBalls(); initAirParts();
+setStatus('Ready'); setBtnGate(false,false);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
