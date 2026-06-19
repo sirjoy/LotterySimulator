@@ -35,7 +35,7 @@ export class Container {
     this.canvas = document.createElement('canvas');
     this.canvas.width  = this.geo.w;
     this.canvas.height = this.geo.h;
-    this.canvas.className = 'sim-canvas';
+    this.canvas.className = 'sim-canvas sim-' + this.id.replace(/\s+/g, '-');
     this.ctx = this.canvas.getContext('2d');
 
     // Pluggable strategies — naive path is the default (vase parity).
@@ -57,6 +57,15 @@ export class Container {
     // Hard containment clamp — opt-in; keeps dense/small balls from tunnelling
     // through walls. Off for the big-ball vases (exact original behaviour).
     this.containment = config.containment || false;
+
+    // Calm settling — opt-in; once the air is off, use a dead restitution and
+    // run extra position-relaxation passes so a dense pile converges to rest
+    // instead of jittering. Off for the small vases (sparse piles settle fine).
+    this.calmSettle = config.calmSettle || false;
+
+    // Fair draws — opt-in; assign labels from a random shuffle each draw so the
+    // captured number is uniform over 0..count-1 despite positional capture bias.
+    this.shuffleLabels = config.shuffleLabels || false;
 
     // Per-instance state (was global).
     this.simState   = 'idle';
@@ -92,6 +101,7 @@ export class Container {
       palette: this.config.palette,
       broadphase: this.broadphase,
       containment: this.containment,
+      shuffleLabels: this.shuffleLabels,
     });
     this.initAirParts();
   }
@@ -229,6 +239,8 @@ export class Container {
     const s = this.simState;
     const airOn = (s==='ramping'||s==='tumbling'||s==='gate_wait'||s==='gate_open'||s==='capturing');
     const drag = airOn ? P.DRAG_ON : P.DRAG_OFF;
+    const calm = !airOn && this.calmSettle;   // settle a dense pile to rest
+    const wallRest = calm ? P.REST_WALL_SETTLE : P.REST_WALL;
 
     for (const b of this.balls) {
       if (b.captured) continue;
@@ -265,7 +277,7 @@ export class Container {
 
       b.x += b.vx*dt; b.y += b.vy*dt;
 
-      resolveSegments(geo, P, b, P.REST_WALL);
+      resolveSegments(geo, P, b, wallRest);
       resolveGate(geo, P, this.gate, b);
       if (this.containment) clampToContainer(geo, b);
 
@@ -280,7 +292,22 @@ export class Container {
       }
     }
 
-    resolveBallCollisions(this.balls, P.REST_BALL, this.broadphase);
+    resolveBallCollisions(this.balls, calm ? P.REST_BALL_SETTLE : P.REST_BALL, this.broadphase);
+
+    // When the air is off, run extra position-only relaxation passes so a dense
+    // pile converges to a non-overlapping rest state instead of jittering.
+    // rest=0 → pure separation: no bounce energy, and velocities are left alone,
+    // so balls still fall naturally while settling (no floaty slow-fall).
+    if (calm) {
+      for (let k = 0; k < P.SETTLE_ITERS; k++) {
+        resolveBallCollisions(this.balls, 0, this.broadphase);
+        for (const b of this.balls) {
+          if (b.captured) continue;
+          resolveSegments(geo, P, b, 0);
+          if (this.containment) clampToContainer(geo, b);
+        }
+      }
+    }
   }
 
   updateAirParts(dt) {
@@ -355,20 +382,33 @@ export class Container {
 // Random scatter + 120-step synchronous presettle. Used by the vase —
 // identical to the original initBalls.
 export class PresettleInit {
-  place({ geo, P, count, labels, palette, broadphase, containment }) {
+  place({ geo, P, count, labels, palette, broadphase, containment, shuffleLabels }) {
+    // The draw is decided by physical position, which is not perfectly uniform
+    // across ball indices in a dense pile. To make the captured NUMBER uniform
+    // regardless, assign each ball a label (and matching colour) from a fresh
+    // shuffle of 0..count-1 each draw. Whichever physical ball the physics
+    // favours, the number it carries is then uniformly random.
+    const lab = Array.from({ length: count }, (_, i) => i);
+    if (shuffleLabels) {
+      for (let i = count - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = lab[i]; lab[i] = lab[j]; lab[j] = t;
+      }
+    }
     const balls = [];
     for (let i = 0; i < count; i++) {
+      const li = lab[i];   // label/colour index (shuffled when enabled)
       const randY = geo.funnelBotY - geo.ballR - Math.random() * (geo.funnelBotY - geo.bodyBotY + 100);
       const frac  = Math.max(0, (randY - geo.bodyBotY) / (geo.funnelBotY - geo.bodyBotY));
       const wallL = geo.bodyLeft  + frac * (geo.nozzleL - geo.bodyLeft)  + geo.ballR * 1.4;
       const wallR = geo.bodyRight + frac * (geo.nozzleR - geo.bodyRight) - geo.ballR * 1.4;
       const randX = wallL + Math.random() * Math.max(1, wallR - wallL);
       balls.push({
-        id: i, label: labels(i),
+        id: i, label: labels(li),
         x: randX, y: randY,
         vx: (Math.random()-.5)*50, vy: Math.random()*30,
         r: geo.ballR,
-        color: palette[i % palette.length],
+        color: palette[li % palette.length],
         turbX: 0, turbY: 0,
         turbTimer: Math.floor(Math.random() * P.TURB_FRAMES),
         captured: false,
