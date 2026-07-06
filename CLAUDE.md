@@ -29,6 +29,23 @@ python3 -m http.server
 There is nothing to build, lint, or test. `lottery-cylinder_12.html` is the old
 single-file build and still opens directly (`open lottery-cylinder_12.html`).
 
+## Git Workflow
+
+Never commit or push directly to `main`. For any feature or fix:
+
+1. Create a branch first — `feature/<slug>` or `fix/<slug>`, matching this repo's
+   existing history (e.g. `feature/serie-350-grid`, `feature/serie-100-containment`).
+2. Validate the change before opening a PR. Since there is no build/lint/test step,
+   this means launching the app and exercising the change in-browser (see the UI
+   changes rule above) — this is the substitute for CI in this repo.
+3. Push the branch and open the PR with `gh pr create`. Do not merge locally.
+4. Where useful, run the `pr-code-reviewer` subagent (`.claude/agents/`) against the
+   diff before or at PR creation, as has been done for past PRs in this repo.
+5. Merge only via PR (`gh pr merge` or the GitHub UI) — never `git push origin main`.
+
+`main` has branch protection requiring a PR, so a direct push will be rejected anyway;
+branching first avoids the round-trip.
+
 ## Architecture
 
 A single `requestAnimationFrame` loop in `main.js` drives a list of `Container`
