@@ -187,7 +187,7 @@ export const VASE_DIMS = {
 };
 
 // The "serie" vase: a wider chamber than the numbered vases (its own geometry,
-// not spread from VASE_DIMS) for the dense 350-ball draw. Its aspect (~0.79) is
+// not spread from VASE_DIMS) for the dense 420-ball draw. Its aspect (~0.79) is
 // chosen so that, at the slightly larger CSS width, it renders at the SAME
 // display height as the numbered vases while being ~20% wider. Body width 262 vs
 // the vase's 206. Small balls (r=6); containment + calmSettle keep them in and

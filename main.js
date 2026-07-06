@@ -26,24 +26,24 @@ function numberedVase(id) {
   };
 }
 
-// A "serie" vase with 350 colour-only (unlabelled) balls — the target scale for
+// A "serie" vase with 420 colour-only (unlabelled) balls — the target scale for
 // the large base, exercised here in the existing vase. The captured number
-// (0–349) is still revealed in the results panel.
+// (0–419) is still revealed in the results panel.
 const SERIE_CONFIG = {
   id: 'serie',
   dims: SERIE_DIMS,
-  ballCount: 350,
+  ballCount: 420,
   labels: (i) => String(i),
-  palette: makeHuePalette(350),
+  palette: makeHuePalette(420),
   renderDetail: 'color',    // BallSpriteRenderer — no on-ball text
-  broadphase: 'grid',       // all-pairs (~61k pairs/frame) is too costly at 350
+  broadphase: 'grid',       // all-pairs (~88k pairs/frame) is too costly at 420
   initMode: 'presettle',    // deliberate: runs through the grid + respects the
                             // funnel. packed-grid would skip the one-time
                             // synchronous settle but ignores the funnel taper and
                             // doesn't shuffle labels (unfair) — left to the base.
   containment: true,        // hard clamp — dense small balls can't tunnel out
   calmSettle: true,         // dense pile rests instead of jittering when air off
-  shuffleLabels: true,      // uniform draw across 0–349 despite positional bias
+  shuffleLabels: true,      // uniform draw across 0–419 despite positional bias
   airSetting: 0.75,
   maxSubsteps: 1,
 };
