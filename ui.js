@@ -11,12 +11,14 @@
 //  so any number of containers can coexist without id collisions.
 // ═══════════════════════════════════════════════
 
+import { t, onLangChange } from './i18n.js';
+
 const CONTROLS_HTML = `
-  <button class="btn-primary btn-blow">▶ BLOW AIR</button>
-  <button class="btn-primary btn-gate" disabled>⊙ OPEN GATE</button>
-  <button class="btn-reset">Reset history</button>
+  <button class="btn-primary btn-blow" data-i18n="btnBlow"></button>
+  <button class="btn-primary btn-gate" data-i18n="btnGate" disabled></button>
+  <button class="btn-reset" data-i18n="btnReset"></button>
   <div class="air-control">
-    <span class="air-label">Air</span>
+    <span class="air-label" data-i18n="airLabel"></span>
     <input type="range" class="air-slider" min="30" max="130" value="75">
     <span class="slider-val air-val">75%</span>
   </div>
@@ -35,6 +37,12 @@ export function buildControls(containers) {
   const btnReset  = el.querySelector('.btn-reset');
   const airSlider = el.querySelector('.air-slider');
   const airVal    = el.querySelector('.air-val');
+
+  function applyI18n() {
+    el.querySelectorAll('[data-i18n]').forEach(node => { node.textContent = t(node.dataset.i18n); });
+  }
+  applyI18n();
+  onLangChange(applyI18n);
 
   btnBlow.addEventListener('click',  () => containers.forEach(c => c.startBlow()));
   btnGate.addEventListener('click',  () => containers.forEach(c => c.openGate()));
@@ -65,7 +73,7 @@ const RESULT_ROW_HTML = `
     <span class="res-name"></span>
     <span class="res-number empty">–</span>
   </div>
-  <div class="res-status">Ready</div>
+  <div class="res-status"></div>
   <div class="history-list"></div>
 `;
 
@@ -85,19 +93,39 @@ export function buildContainerUI(container) {
   const row = document.createElement('div');
   row.className = 'res-row';
   row.innerHTML = RESULT_ROW_HTML;
-  row.querySelector('.res-name').textContent = container.id.toUpperCase();
 
+  const nameEl      = row.querySelector('.res-name');
   const dot         = row.querySelector('.dot');
   const resNumber   = row.querySelector('.res-number');
   const resStatus   = row.querySelector('.res-status');
   const historyList = row.querySelector('.history-list');
+
+  // Container ids are 'vase 1'..'vase 4' or 'serie'; re-render on lang change
+  // since the display name ("VASE 1" / "BOMBO 1") is translated.
+  const vaseMatch = /^vase\s+(\d+)$/i.exec(container.id);
+  function renderName() {
+    nameEl.textContent = vaseMatch ? t('vaseName', { n: vaseMatch[1] }) : t('serieName');
+  }
+  renderName();
+  onLangChange(renderName);
+
+  // Status text is set via a translation key (+ optional interpolation vars)
+  // rather than a literal string, so it can be redrawn if the language changes
+  // mid-draw instead of waiting for the next state transition.
+  let lastStatus = { key: 'statusReady', vars: undefined };
+  function renderStatus() { resStatus.textContent = t(lastStatus.key, lastStatus.vars); }
+  onLangChange(renderStatus);
+
+  function renderEmptyText() { historyList.dataset.emptyText = t('noDraws'); }
+  renderEmptyText();
+  onLangChange(renderEmptyText);
 
   const ui = {
     // Button setters are global (handled by buildControls) → no-ops here, so
     // the container's state-machine calls remain valid.
     setBtnBlow() {}, setBtnGate() {},
 
-    setStatus(t) { resStatus.textContent = t; },
+    setStatus(key, vars) { lastStatus = { key, vars }; renderStatus(); },
     setDot(cls)  { dot.className = 'dot ' + cls; },
 
     updateResult(ball) {

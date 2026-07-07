@@ -44,6 +44,23 @@
   }
   h1 span { color: var(--accent); }
 
+  .lang-toggle {
+    position: fixed;
+    top: 14px; right: 14px;
+    padding: 6px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .08em;
+    color: var(--dim);
+    background: var(--panel);
+    border: 1px solid var(--chrome);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color .2s, border-color .2s;
+    z-index: 10;
+  }
+  .lang-toggle:hover { color: var(--text); border-color: var(--dim); }
+
   .subtitle {
     font-family: 'Inter', sans-serif;
     font-size: 13px;
@@ -162,6 +179,30 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
+  /* ── On phone widths, 5 separately-chromed 200px cards wrap awkwardly.
+     Unify them into one bordered panel with a stacked list instead — same
+     per-vase data (name/status/number/history stay distinct), just one
+     shared border instead of five. ── */
+  @media (max-width: 640px) {
+    #results {
+      flex-direction: column;
+      flex-wrap: nowrap;
+      gap: 0;
+      background: var(--panel);
+      border: 1px solid var(--chrome);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .res-row {
+      width: 100%;
+      background: none;
+      border: none;
+      border-radius: 0;
+      border-bottom: 1px solid var(--chrome);
+    }
+    .res-row:last-child { border-bottom: none; }
+  }
+
   /* ── History (horizontal, compact) ── */
   .history-list {
     display: flex;
@@ -176,7 +217,7 @@
   .history-list::-webkit-scrollbar { height: 4px; }
   .history-list::-webkit-scrollbar-thumb { background: var(--chrome); border-radius: 2px; }
   .history-list:empty::after {
-    content: 'No draws yet';
+    content: attr(data-empty-text);
     font-family: 'DM Mono', monospace;
     font-size: 10px;
     color: var(--dim);
@@ -293,17 +334,19 @@
 </head>
 <body>
 
-<h1>PNEUMATIC <span>LOTTERY</span> DRAW</h1>
-<p class="subtitle">A browser-based pneumatic lottery draw simulator — blow air, open the gate, and draw a winner.</p>
+<button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+
+<h1 data-i18n-html="titleHtml">PNEUMATIC <span>LOTTERY</span> DRAW</h1>
+<p class="subtitle" data-i18n="subtitle">A browser-based pneumatic lottery draw simulator — blow air, open the gate, and draw a winner.</p>
 
 <details class="about">
-  <summary>About this project</summary>
+  <summary data-i18n="aboutSummary">About this project</summary>
   <p>
-    Numbered balls are blown around a vase-shaped glass chamber by an air jet; when
+    <span data-i18n="aboutBody">Numbered balls are blown around a vase-shaped glass chamber by an air jet; when
     you open the gate, one ball is launched up the exit tube and recorded as the
     winning draw. Built with plain ES modules and the Canvas 2D API — no
-    dependencies or build step.
-    <a href="https://github.com/sirjoy/LotterySimulator" target="_blank" rel="noopener">View source on GitHub →</a>
+    dependencies or build step.</span>
+    <a data-i18n="aboutLink" href="https://github.com/sirjoy/LotterySimulator" target="_blank" rel="noopener">View source on GitHub →</a>
   </p>
 </details>
 

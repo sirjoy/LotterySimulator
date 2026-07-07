@@ -6,6 +6,8 @@ one ball is launched up the exit tube and recorded as the winning draw.
 
 ![Pneumatic Lottery Draw](https://img.shields.io/badge/canvas-2D%20physics-3a8fff)
 
+**[Live demo →](https://sirjoy.github.io/LotterySimulator/)**
+
 ## Features
 
 - Real-time 2D physics: gravity, drag, a Gaussian air jet, turbulence, and

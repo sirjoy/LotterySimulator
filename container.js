@@ -88,7 +88,7 @@ export class Container {
   // Called by ui.buildPanel once the DOM panel + setters exist.
   mountUI(ui) {
     this.ui = ui;
-    this.ui.setStatus('Ready');
+    this.ui.setStatus('statusReady');
     this.ui.setBtnGate(false, false);
   }
 
@@ -133,7 +133,7 @@ export class Container {
     this.ui.clearResult();
     this.simState = 'ramping';
     this.ui.setBtnBlow(false); this.ui.setBtnGate(false, false);
-    this.ui.setDot('active'); this.ui.setStatus('Air ramping…');
+    this.ui.setDot('active'); this.ui.setStatus('statusRamping');
   }
 
   openGate() {
@@ -145,7 +145,7 @@ export class Container {
     this.gateDelay = this.P.GATE_DELAY + (Math.random()*2 - 1) * this.P.GATE_DELAY_JIT;
     this.gate.opening = false;
     this.ui.setBtnGate(false, false);
-    this.ui.setDot('gate'); this.ui.setStatus('Gate triggered…');
+    this.ui.setDot('gate'); this.ui.setStatus('statusGateTriggered');
   }
 
   resetHistory() {
@@ -181,10 +181,10 @@ export class Container {
         this.stateTimer += dt;
         this.airBase = Math.min(this.stateTimer/P.RAMP_TIME, 1.0)*this.airSetting;
         this.airPower = Math.max(0, this.airBase+pulse*this.airBase);
-        this.ui.setStatus(`Air ramping… ${Math.round(this.airBase*100)}%`);
+        this.ui.setStatus('statusRampingPct', { pct: Math.round(this.airBase*100) });
         if (this.stateTimer >= P.RAMP_TIME) {
           this.simState = 'tumbling'; this.stateTimer = 0;
-          this.ui.setDot('active'); this.ui.setStatus('Balls tumbling — open gate when ready');
+          this.ui.setDot('active'); this.ui.setStatus('statusTumbling');
           this.ui.setBtnGate(true, true);
         }
         break;
@@ -198,11 +198,11 @@ export class Container {
         this.airBase = this.airSetting;
         this.airPower = Math.max(0, this.airBase+pulse*this.airBase);
         this.stateTimer += dt;
-        this.ui.setStatus(`Gate triggered — opening in ${Math.max(0, this.gateDelay-this.stateTimer).toFixed(1)}s`);
+        this.ui.setStatus('statusGateWait', { s: Math.max(0, this.gateDelay-this.stateTimer).toFixed(1) });
         if (this.stateTimer >= this.gateDelay) {
           this.simState = 'gate_open';
           this.gate.opening = true;
-          this.ui.setStatus('Gate opening…');
+          this.ui.setStatus('statusGateOpening');
         }
         break;
 
@@ -352,7 +352,7 @@ export class Container {
     best.x  = geo.centerX + (best.x - geo.centerX) * 0.3; // snap 70% toward center
     best.vx = 0;
     best.vy = -P.CAPTURE_BOOST;
-    this.ui.setDot('capture'); this.ui.setStatus('Capturing…');
+    this.ui.setDot('capture'); this.ui.setStatus('statusCapturing');
     this.ui.setBtnGate(false, false);
   }
 
@@ -366,12 +366,12 @@ export class Container {
     this.ui.updateResult(ball);
     this.ui.addHistoryRow(ball.label, this.history.length, ball.color);
     this.ui.showCapturedStage(ball);
-    this.ui.setDot(''); this.ui.setStatus('Settling…');
+    this.ui.setDot(''); this.ui.setStatus('statusSettling');
     this.ui.setBtnGate(false, false);
     setTimeout(() => {
       this.simState = 'idle';
       this.gate.t = 0; this.gate.opening = false;
-      this.ui.setDot(''); this.ui.setStatus('Ready');
+      this.ui.setDot(''); this.ui.setStatus('statusReady');
       this.ui.setBtnBlow(true);
     }, P.SETTLE_TIME * 1000);
   }
