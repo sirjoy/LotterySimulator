@@ -8,6 +8,24 @@
 import { Container } from './container.js';
 import { buildControls, buildContainerUI } from './ui.js';
 import { BALL_COLORS, VASE_DIMS, SERIE_DIMS, makeHuePalette } from './geometry.js';
+import { t, getLang, setLang, onLangChange } from './i18n.js';
+
+// Page-level text (title/subtitle/About panel) lives directly in index.html via
+// data-i18n / data-i18n-html attributes; per-container/control text is handled
+// by ui.js. This just applies the current language to the static markup and
+// wires the toggle button — re-run on every language change, no page reload.
+function applyStaticI18n() {
+  document.documentElement.lang = getLang();
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+  const toggle = document.getElementById('lang-toggle');
+  if (toggle) toggle.textContent = getLang() === 'es' ? 'EN' : 'ES';
+}
+applyStaticI18n();
+onLangChange(applyStaticI18n);
+document.getElementById('lang-toggle')?.addEventListener('click', () => {
+  setLang(getLang() === 'es' ? 'en' : 'es');
+});
 
 // A standard 10-ball numbered vase (the original), as a config factory so we
 // can line up several identical ones in the stage row.
