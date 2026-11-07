@@ -105,10 +105,16 @@ export function makeGeometry(dims) {
   const tubeR   = centerX + tubeW / 2;
   const tubeTopY = bodyTopY - tubeH;
   const tubeBotY = bodyTopY;
+  // How far the tube's real capture mouth reaches down into the body/funnel,
+  // as a fraction of the full interior depth (bodyTopY→funnelBotY). 0 (the
+  // default, e.g. the serie) reproduces the original shallow ceiling stub —
+  // tubeMouthY collapses to bodyTopY and the two side-wall segments below
+  // are zero-length.
+  const tubeMouthY = bodyTopY + (dims.tubeDepthFrac || 0) * (funnelBotY - bodyTopY);
 
   const wallSegs = makeWallSegments({
     bodyTopY, bodyBotY, funnelBotY, bodyLeft, bodyRight,
-    centerX, nozzleL, nozzleR, topInset, topH, tubeW,
+    centerX, nozzleL, nozzleR, topInset, topH, tubeL, tubeR, tubeMouthY,
   });
 
   return Object.freeze({
@@ -117,7 +123,7 @@ export function makeGeometry(dims) {
     bodyLeft, bodyRight,
     nozzleHalf, centerX, nozzleL, nozzleR,
     topInset, topH,
-    tubeW, tubeH, tubeL, tubeR, tubeTopY, tubeBotY,
+    tubeW, tubeH, tubeL, tubeR, tubeTopY, tubeBotY, tubeMouthY,
     ballR,
     wallSegs,
   });
@@ -128,7 +134,7 @@ export function makeGeometry(dims) {
 // to a narrow nozzle, plus the ceiling split around the exit tube.
 function makeWallSegments(g) {
   const { bodyTopY, bodyBotY, funnelBotY, bodyLeft, bodyRight,
-          centerX, nozzleL, nozzleR, topInset, topH, tubeW } = g;
+          centerX, nozzleL, nozzleR, topInset, topH, tubeL, tubeR, tubeMouthY } = g;
   const segs = [];
   function seg(x1,y1,x2,y2,nx,ny) {
     const len = Math.hypot(nx,ny);
@@ -169,9 +175,17 @@ function makeWallSegments(g) {
   seg(nozzleL, funnelBotY, nozzleR, funnelBotY,  0, -1);
 
   // CEILING — left of tube
-  seg(bodyLeft+topInset, bodyTopY, centerX - tubeW/2, bodyTopY,  0, 1);
+  seg(bodyLeft+topInset, bodyTopY, tubeL, bodyTopY,  0, 1);
   // CEILING — right of tube
-  seg(centerX + tubeW/2, bodyTopY, bodyRight-topInset, bodyTopY,  0, 1);
+  seg(tubeR, bodyTopY, bodyRight-topInset, bodyTopY,  0, 1);
+
+  // TUBE — outer side walls, hanging down into the body/funnel toward
+  // tubeMouthY (the real capture point). Normals point AWAY from the tube
+  // column — the opposite orientation from the body/funnel walls above,
+  // since here the valid ball space is outside the column, not inside it.
+  // Zero-length (harmless) when tubeMouthY === bodyTopY (tubeDepthFrac 0).
+  seg(tubeL, bodyTopY, tubeL, tubeMouthY, -1, 0);
+  seg(tubeR, bodyTopY, tubeR, tubeMouthY,  1, 0);
 
   return segs;
 }
@@ -184,6 +198,10 @@ export const VASE_DIMS = {
   nozzleHalf: 18, topInset: 14, topH: 55,
   tubeW: 32, tubeH: 62,
   ballR: 13,
+  // Experiment: like a real machine's capture tube, reach deep into the vase
+  // instead of stopping at the ceiling — 70% of the way from bodyTopY to
+  // funnelBotY. Serie/base containers omit this (default 0 = old stub).
+  tubeDepthFrac: 0.7,
 };
 
 // The "serie" vase: a wider chamber than the numbered vases (its own geometry,

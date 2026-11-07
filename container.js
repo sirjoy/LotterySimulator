@@ -281,9 +281,10 @@ export class Container {
       resolveGate(geo, P, this.gate, b);
       if (this.containment) clampToContainer(geo, b);
 
-      // Tube exit — first ball into the open tube wins.
+      // Tube exit — first ball into the open tube wins. tubeMouthY is the
+      // tube's real (possibly deep) capture point, not just the ceiling.
       const inTubeX = b.x > geo.tubeL + b.r * 0.5 && b.x < geo.tubeR - b.r * 0.5;
-      if (inTubeX && b.y - b.r < geo.bodyTopY && this.gate.t >= 1.0) {
+      if (inTubeX && b.y - b.r < geo.tubeMouthY && this.gate.t >= 1.0) {
         if ((this.simState === 'capturing' || this.simState === 'gate_open') && !b.captured) {
           b.captured = true;
           this.chosenBall = b;
@@ -340,7 +341,7 @@ export class Container {
     let best = null, bestScore = Infinity;
     for (const b of this.balls) {
       if (b.captured) continue;
-      const heightScore   = (b.y - geo.bodyTopY) * 0.8;
+      const heightScore   = (b.y - geo.tubeMouthY) * 0.8;
       const centerScore   = Math.abs(b.x - geo.centerX) * 1.2;
       const momentumBonus = Math.max(0, b.vy) * 0.15;
       const score = heightScore + centerScore - momentumBonus;

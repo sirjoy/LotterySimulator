@@ -163,11 +163,14 @@ function drawGate(ctx, geo, gate) {
 function drawTube(ctx, geo) {
   ctx.save();
   ctx.fillStyle = '#080c16';
-  ctx.fillRect(geo.tubeL, geo.tubeTopY, geo.tubeW, geo.tubeH);
+  // Spans from the above-canvas stub down to tubeMouthY — the tube's real
+  // capture point, which may reach deep into the body/funnel (tubeMouthY
+  // === bodyTopY, i.e. no extension, for containers with no tubeDepthFrac).
+  ctx.fillRect(geo.tubeL, geo.tubeTopY, geo.tubeW, geo.tubeMouthY - geo.tubeTopY);
   ctx.strokeStyle = 'rgba(150,200,255,0.26)';
   ctx.lineWidth = 1.8;
-  ctx.beginPath(); ctx.moveTo(geo.tubeL, geo.tubeTopY+3); ctx.lineTo(geo.tubeL, geo.bodyTopY); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(geo.tubeR, geo.tubeTopY+3); ctx.lineTo(geo.tubeR, geo.bodyTopY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(geo.tubeL, geo.tubeTopY+3); ctx.lineTo(geo.tubeL, geo.tubeMouthY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(geo.tubeR, geo.tubeTopY+3); ctx.lineTo(geo.tubeR, geo.tubeMouthY); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(geo.tubeL, geo.tubeTopY+3); ctx.lineTo(geo.tubeR, geo.tubeTopY+3); ctx.stroke();
   ctx.font='8px DM Mono,monospace'; ctx.fillStyle='rgba(150,200,255,0.35)';
   ctx.textAlign='center';
